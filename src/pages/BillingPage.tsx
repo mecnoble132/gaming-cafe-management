@@ -139,9 +139,7 @@ export default function BillingPage({
   }, {});
 
   const createCustomer = (payload: { name?: string; phone: string; whatsapp_number?: string }) => {
-    const customerId = `CUS-${1000 + customers.length + 1}`;
-    const created: Customer = {
-      id: customerId,
+    const created: Omit<Customer, 'id'> = {
       name: payload.name || payload.phone,
       phone: payload.phone,
       whatsapp_number: payload.whatsapp_number || payload.phone,
@@ -157,11 +155,11 @@ export default function BillingPage({
         toast.success(`Welcome back, ${existing.name || existing.phone}!`);
         return;
       }
-      const { error } = await supabase.from('customers').insert({ ...created, ...(tenantId ? { tenant_id: tenantId } : {}) });
-      if (error) { toast.error(`Failed to save new customer: ${error.message}`); return; }
-      setCustomers((prev) => [created, ...prev]);
-      setSelectedCustomer(created);
-      toast.success(`Customer created · ${created.id}`);
+      const { data: newCustomer, error } = await supabase.from('customers').insert({ ...created, ...(tenantId ? { tenant_id: tenantId } : {}) }).select().single();
+      if (error || !newCustomer) { toast.error(`Failed to save new customer: ${error?.message || 'Unknown error'}`); return; }
+      setCustomers((prev) => [newCustomer as Customer, ...prev]);
+      setSelectedCustomer(newCustomer as Customer);
+      toast.success(`Customer created · ${newCustomer.id}`);
     };
     saveToDb();
   };
@@ -172,9 +170,7 @@ export default function BillingPage({
     customerId?: string; customerName?: string; customerPhone?: string;
     items: BillItem[];
   }) => {
-    const billId = `BILL-${Date.now()}`;
-    const { error } = await supabase.from('bills').insert({
-      id: billId,
+    const { data: newBill, error } = await supabase.from('bills').insert({
       customer_id: opts.customerId || null,
       customer_name: opts.customerName || 'Cash Customer',
       customer_phone: opts.customerPhone || null,
@@ -187,8 +183,13 @@ export default function BillingPage({
       items: opts.items,
       ...(tenantId ? { tenant_id: tenantId } : {}),
       created_at: new Date().toISOString(),
-    });
-    if (error) console.error('Bill record save failed:', error.message);
+    }).select().single();
+    
+    if (error) {
+      console.error('Bill record save failed:', error.message);
+      throw error;
+    }
+    return newBill;
   };
 
   const handleFinalize = async ({
@@ -198,64 +199,76 @@ export default function BillingPage({
     subtotal: number; discount: number; grandTotal: number;
     pointsEarned: number; pointsRedeemed: number; isUnlinked: boolean;
   }) => {
-    // --- Update Stock ---
-    const productCounts: Record<string, number> = {};
-    billItems.forEach(item => {
-      if (item.item_type === 'product' && item.metadata?.product_id) {
-        productCounts[item.metadata.product_id] = (productCounts[item.metadata.product_id] || 0) + item.quantity;
-      }
-    });
-    for (const [productId, usedQty] of Object.entries(productCounts)) {
-      const { data: cur, error: fe } = await supabase.from('products').select('stock_quantity').eq('id', productId).single();
-      if (fe) { toast.error(`Stock fetch failed for ${productId}`); continue; }
-      if (cur) {
-        const { error: ue } = await supabase.from('products').update({ stock_quantity: Math.max(0, cur.stock_quantity - usedQty) }).eq('id', productId);
-        if (ue) toast.error(`Stock update failed: ${ue.message}`);
-      }
-    }
-    const { data: freshProducts } = await supabase.from('products').select('*').order('name');
-    if (freshProducts) setProducts(freshProducts);
-
-    // --- Unlinked bill ---
-    if (!selectedCustomer) {
-      if (isUnlinked) {
-        await saveBillRecord({ paymentMethod, subtotal, discount, grandTotal, pointsEarned: 0, pointsRedeemed: 0, items: billItems });
-        toast.success(`Bill finalized · ₹${Math.round(grandTotal)} · Cash Customer`);
-        setBillItems([]);
-        return;
-      }
+    // 1. Ensure linked customer if required
+    if (!selectedCustomer && !isUnlinked) {
       toast.error('Please select or create a customer first');
       return;
     }
 
-    // --- Update customer ---
-    const updatedPoints = Math.max(0, selectedCustomer.loyalty_points - pointsRedeemed + pointsEarned);
-    const updatedVisits = (selectedCustomer.visits || 0) + 1;
+    try {
+      // 2. Save the bill first to ensure we have a record before modifying other state
+      await saveBillRecord({
+        paymentMethod, subtotal, discount, grandTotal,
+        pointsEarned: isUnlinked ? 0 : pointsEarned,
+        pointsRedeemed: isUnlinked ? 0 : pointsRedeemed,
+        customerId: selectedCustomer?.id,
+        customerName: selectedCustomer?.name,
+        customerPhone: selectedCustomer?.phone,
+        items: billItems,
+      });
 
-    const { error: customerError } = await supabase
-      .from('customers')
-      .update({ loyalty_points: updatedPoints, visits: updatedVisits })
-      .eq('id', selectedCustomer.id);
-    if (customerError) { toast.error('Failed to update customer stats'); return; }
+      // 3. Atomically update stock via RPC
+      const productCounts: Record<string, number> = {};
+      billItems.forEach(item => {
+        if (item.item_type === 'product' && item.metadata?.product_id) {
+          productCounts[item.metadata.product_id] = (productCounts[item.metadata.product_id] || 0) + item.quantity;
+        }
+      });
 
-    // --- Save bill record ---
-    await saveBillRecord({
-      paymentMethod, subtotal, discount, grandTotal, pointsEarned, pointsRedeemed,
-      customerId: selectedCustomer.id,
-      customerName: selectedCustomer.name,
-      customerPhone: selectedCustomer.phone,
-      items: billItems,
-    });
+      for (const [productId, usedQty] of Object.entries(productCounts)) {
+        const { error: ue } = await supabase.rpc('decrement_stock', {
+          product_id: productId,
+          amount: usedQty
+        });
+        if (ue) {
+          toast.error(`Stock update failed for some items: ${ue.message}`);
+          console.error(ue);
+        }
+      }
 
-    const updatedCustomer = { ...selectedCustomer, loyalty_points: updatedPoints, visits: updatedVisits };
-    setCustomers((prev) => prev.map((c) => (c.id === selectedCustomer.id ? updatedCustomer : c)));
-    setSelectedCustomer(updatedCustomer);
+      // Refresh product state
+      const { data: freshProducts } = await supabase.from('products').select('*').order('name');
+      if (freshProducts) setProducts(freshProducts);
 
-    toast.success(`Bill saved · ₹${Math.round(grandTotal)} · ${selectedCustomer.name || selectedCustomer.phone}`);
-    if (selectedCustomer?.whatsapp_number) toast.info(`WhatsApp queued to ${selectedCustomer.whatsapp_number}`);
+      // 4. Update customer points if linked
+      if (selectedCustomer) {
+        const updatedPoints = Math.max(0, selectedCustomer.loyalty_points - pointsRedeemed + pointsEarned);
+        const updatedVisits = (selectedCustomer.visits || 0) + 1;
 
-    setBillItems([]);
-    setSelectedCustomer(null);
+        const { error: customerError } = await supabase
+          .from('customers')
+          .update({ loyalty_points: updatedPoints, visits: updatedVisits })
+          .eq('id', selectedCustomer.id);
+
+        if (customerError) {
+          toast.error('Bill saved but failed to update customer stats');
+        } else {
+          const updatedCustomer = { ...selectedCustomer, loyalty_points: updatedPoints, visits: updatedVisits };
+          setCustomers((prev) => prev.map((c) => (c.id === selectedCustomer.id ? updatedCustomer : c)));
+          setSelectedCustomer(updatedCustomer);
+        }
+      }
+
+      const customerDisplay = selectedCustomer?.name || selectedCustomer?.phone || 'Cash Customer';
+      toast.success(`Bill finalized · ₹${Math.round(grandTotal)} · ${customerDisplay}`);
+      if (selectedCustomer?.whatsapp_number) toast.info(`WhatsApp queued to ${selectedCustomer.whatsapp_number}`);
+
+      setBillItems([]);
+      setSelectedCustomer(null);
+
+    } catch (err: any) {
+      toast.error(`Failed to finalize bill: ${err.message}`);
+    }
   };
 
   return (

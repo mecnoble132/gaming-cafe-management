@@ -201,3 +201,14 @@ drop trigger if exists on_auth_user_created_profile on auth.users;
 create trigger on_auth_user_created_profile
 after insert on auth.users
 for each row execute procedure public.handle_new_user_profile();
+
+-- 9. Atomic Operations
+create or replace function public.decrement_stock(product_id text, amount integer)
+returns void language plpgsql security definer as $$
+begin
+  update public.products
+  set stock_quantity = greatest(0, stock_quantity - amount)
+  where id = product_id
+    and tenant_id = public.get_auth_tenant_id();
+end;
+$$;
