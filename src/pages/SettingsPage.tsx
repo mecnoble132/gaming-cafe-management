@@ -53,7 +53,7 @@ export default function SettingsPage({
   } | null>(null);
 
   useEffect(() => {
-    document.title = 'Settings · Goat Gaming';
+    document.title = 'Settings · CoreControl';
   }, []);
 
   useEffect(() => {
@@ -355,7 +355,7 @@ export default function SettingsPage({
               These timings control when customers can book slots and the slot size used in the bookings calendar.
             </p>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-              <label className="space-y-1">
+                  <label className="flex flex-col gap-2.5">
                 <span className="text-xs font-medium text-muted-foreground">Opening time</span>
                 <Input
                   type="time"
@@ -363,7 +363,7 @@ export default function SettingsPage({
                   onChange={(e) => setBookingSettings((s) => ({ ...s, opening_time: e.target.value }))}
                 />
               </label>
-              <label className="space-y-1">
+                  <label className="flex flex-col gap-2.5">
                 <span className="text-xs font-medium text-muted-foreground">Closing time</span>
                 <Input
                   type="time"
@@ -371,7 +371,7 @@ export default function SettingsPage({
                   onChange={(e) => setBookingSettings((s) => ({ ...s, closing_time: e.target.value }))}
                 />
               </label>
-              <label className="space-y-1">
+                  <label className="flex flex-col gap-2.5">
                 <span className="text-xs font-medium text-muted-foreground">Slot length (minutes)</span>
                 <Input
                   type="number"
@@ -479,7 +479,7 @@ export default function SettingsPage({
               <div className="space-y-4">
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Earning Rules</div>
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="space-y-1">
+                      <label className="flex flex-col gap-2.5">
                     <span className="text-[11px] font-medium text-muted-foreground">Points to earn</span>
                     <Input
                       type="number"
@@ -487,7 +487,7 @@ export default function SettingsPage({
                       onChange={(e) => setLoyaltySettings(s => ({ ...s, earn_rate_points: Number(e.target.value) || 0 }))}
                     />
                   </label>
-                  <label className="space-y-1">
+                      <label className="flex flex-col gap-2.5">
                     <span className="text-[11px] font-medium text-muted-foreground">Per minutes played</span>
                     <Input
                       type="number"
@@ -504,7 +504,7 @@ export default function SettingsPage({
               <div className="space-y-4">
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Redemption Rules</div>
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="space-y-1">
+                      <label className="flex flex-col gap-2.5">
                     <span className="text-[11px] font-medium text-muted-foreground">Points to redeem</span>
                     <Input
                       type="number"
@@ -512,7 +512,7 @@ export default function SettingsPage({
                       onChange={(e) => setLoyaltySettings(s => ({ ...s, redeem_rate_points: Number(e.target.value) || 0 }))}
                     />
                   </label>
-                  <label className="space-y-1">
+                      <label className="flex flex-col gap-2.5">
                     <span className="text-[11px] font-medium text-muted-foreground">For free minutes</span>
                     <Input
                       type="number"

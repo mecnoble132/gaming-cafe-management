@@ -277,7 +277,7 @@ export default function BookingsPage({
   const isPast = isPastDay;
 
   useEffect(() => {
-    document.title = 'Bookings · Goat Gaming';
+    document.title = 'Bookings · CoreControl';
   }, []);
 
   useEffect(() => {
@@ -825,7 +825,7 @@ export default function BookingsPage({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="grid gap-2">
+                  <div className="grid gap-3.5">
                     <label className="text-xs font-semibold text-muted-foreground">Type</label>
                     <div className="flex gap-2">
                       <Button
@@ -848,7 +848,7 @@ export default function BookingsPage({
                   </div>
 
                   {draft.kind === 'booking' ? (
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold text-muted-foreground">Customer (required)</label>
                       <CustomerPicker
                         customers={customers}
@@ -879,7 +879,7 @@ export default function BookingsPage({
                       />
                     </div>
                   ) : (
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold text-muted-foreground">Reason</label>
                       <Input
                         disabled={isPastDay}
@@ -892,7 +892,7 @@ export default function BookingsPage({
                   )}
 
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold text-muted-foreground">Game type</label>
                       <select
                         disabled={isPastDay}
@@ -909,7 +909,7 @@ export default function BookingsPage({
                         ))}
                       </select>
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold text-muted-foreground">Station</label>
                       <select
                         disabled={isPastDay}
@@ -929,7 +929,7 @@ export default function BookingsPage({
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold text-muted-foreground">Date</label>
                       <input
                         disabled={isPastDay}
@@ -939,7 +939,7 @@ export default function BookingsPage({
                         onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))}
                       />
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold text-muted-foreground">Start time</label>
                       <select
                         disabled={isPastDay}
@@ -957,7 +957,7 @@ export default function BookingsPage({
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold text-muted-foreground">Duration</label>
                       <select
                         disabled={isPastDay}
@@ -972,7 +972,7 @@ export default function BookingsPage({
                         ))}
                       </select>
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold text-muted-foreground">Ends at</label>
                       <div className="h-10 rounded-md border border-border/50 bg-muted/20 px-3 text-sm font-mono flex items-center">
                         {format(addMinutes(combineDateTime(draft.date, draft.start_time), draft.duration_minutes), 'hh:mm a')}
@@ -981,7 +981,7 @@ export default function BookingsPage({
                   </div>
 
 
-                  <div className="grid gap-2">
+                  <div className="grid gap-3.5">
                     <label className="text-xs font-semibold text-muted-foreground">Notes</label>
                     <textarea
                       disabled={isPastDay}

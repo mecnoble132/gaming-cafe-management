@@ -58,7 +58,7 @@ export default function CustomersPage({
   });
 
   useEffect(() => {
-    document.title = 'Customers · Goat Gaming';
+    document.title = 'Customers · CoreControl';
     loadCustomers();
   }, []);
 
@@ -268,7 +268,7 @@ export default function CustomersPage({
                     <DialogTitle>{editingCustomer ? 'Edit Customer' : 'Add New Customer'}</DialogTitle>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</label>
                       <Input 
                         placeholder="Customer Name" 
@@ -276,7 +276,7 @@ export default function CustomersPage({
                         onChange={e => setFormData({...formData, name: e.target.value})}
                       />
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Phone Number</label>
                       <Input 
                         placeholder="10-digit mobile" 
@@ -284,7 +284,7 @@ export default function CustomersPage({
                         onChange={e => setFormData({...formData, phone: e.target.value})}
                       />
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">WhatsApp Number</label>
                       <Input 
                         placeholder="WhatsApp number" 
@@ -292,7 +292,7 @@ export default function CustomersPage({
                         onChange={e => setFormData({...formData, whatsapp_number: e.target.value})}
                       />
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">GG Points</label>
                       <Input 
                         type="number" 

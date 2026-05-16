@@ -1,5 +1,11 @@
 -- =========================================================
--- MASTER SAAS SCHEMA (Run this in Supabase SQL Editor)
+-- GOAT GAMING — Supabase SQL (single file)
+-- =========================================================
+-- Where: Supabase Dashboard → SQL Editor → New query → paste all → Run
+--
+-- New project:     run this entire file once.
+-- Existing project: run this entire file once (safe to re-run), OR only
+--                   section 10 at the bottom if you already have the schema.
 -- =========================================================
 
 -- 1. Setup Extensions
@@ -10,6 +16,7 @@ create table if not exists public.tenants (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   slug text unique not null,
+  onboarding_completed boolean not null default false,
   created_at timestamptz default now()
 );
 
@@ -141,6 +148,7 @@ alter table public.loyalty_settings enable row level security;
 
 -- Drop existing policies
 drop policy if exists "tenants_isolation" on public.tenants;
+drop policy if exists "tenants_update_own" on public.tenants;
 drop policy if exists "profiles_select_isolation" on public.profiles;
 drop policy if exists "profiles_update_isolation" on public.profiles;
 drop policy if exists "customers_isolation" on public.customers;
@@ -155,6 +163,11 @@ drop policy if exists "loyalty_settings_isolation" on public.loyalty_settings;
 -- Simple policy for tenants: Any authenticated user can see names/ids of tenants.
 create policy "tenants_isolation" on public.tenants 
 for select to authenticated using (true);
+
+create policy "tenants_update_own" on public.tenants
+for update to authenticated
+using (id = public.get_auth_tenant_id())
+with check (id = public.get_auth_tenant_id());
 
 -- Profiles
 create policy "profiles_select_isolation" on public.profiles 
@@ -212,3 +225,22 @@ begin
     and tenant_id = public.get_auth_tenant_id();
 end;
 $$;
+
+-- 10. Onboarding (column + owner can update tenant + skip for existing cafes)
+alter table public.tenants
+  add column if not exists onboarding_completed boolean not null default false;
+
+drop policy if exists "tenants_update_own" on public.tenants;
+
+create policy "tenants_update_own" on public.tenants
+for update to authenticated
+using (id = public.get_auth_tenant_id())
+with check (id = public.get_auth_tenant_id());
+
+update public.tenants t
+set onboarding_completed = true
+where onboarding_completed = false
+  and (
+    t.name <> 'My Gaming Cafe'
+    or exists (select 1 from public.stations s where s.tenant_id = t.id)
+  );

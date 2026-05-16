@@ -37,11 +37,11 @@ export function Logo({ className, iconOnly = false, size = 'md' }: LogoProps) {
       {!iconOnly && (
         <div className="flex flex-col leading-none">
           <h1 className={cn("font-black uppercase tracking-tighter text-foreground italic", textSizes[size])}>
-            Goat <span className="text-primary not-italic">Gaming</span>
+            Core <span className="text-primary not-italic">Control</span>
           </h1>
           {size !== 'sm' && (
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mt-0.5">
-              Premium Station
+              Arena Command
             </p>
           )}
         </div>

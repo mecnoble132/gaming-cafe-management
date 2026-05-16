@@ -55,7 +55,7 @@ export default function DashboardPage({
   });
 
   useEffect(() => {
-    document.title = 'Dashboard · Goat Gaming';
+    document.title = 'Dashboard · CoreControl';
   }, []);
 
   useEffect(() => {

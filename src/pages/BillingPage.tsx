@@ -18,7 +18,7 @@ export default function BillingPage({
   onNavigate?: (next: 'dashboard' | 'billing' | 'bookings' | 'settings' | 'inventory' | 'customers' | 'reports') => void;
   onLogout?: () => void;
 }) {
-  useEffect(() => { document.title = 'Billing · Goat Gaming'; }, []);
+  useEffect(() => { document.title = 'Billing · CoreControl'; }, []);
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);

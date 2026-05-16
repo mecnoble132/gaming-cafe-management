@@ -57,7 +57,7 @@ export default function InventoryPage({
   });
 
   useEffect(() => {
-    document.title = 'Inventory · Goat Gaming';
+    document.title = 'Inventory · CoreControl';
     loadProducts();
   }, []);
 
@@ -264,7 +264,7 @@ export default function InventoryPage({
                     <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                     <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Product ID</label>
                     <Input 
                       placeholder="e.g. SNK-001" 
@@ -275,7 +275,7 @@ export default function InventoryPage({
                     />
                     <p className="text-[10px] text-muted-foreground">ID is automatically generated</p>
                   </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</label>
                       <Input 
                         placeholder="e.g. Red Bull" 
@@ -283,7 +283,7 @@ export default function InventoryPage({
                         onChange={e => setFormData({...formData, name: e.target.value})}
                       />
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category</label>
                       <Input 
                         placeholder="e.g. Drinks" 
@@ -292,7 +292,7 @@ export default function InventoryPage({
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
+                      <div className="grid gap-3.5">
                         <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">MRP (₹)</label>
                         <Input 
                           type="number" 
@@ -300,7 +300,7 @@ export default function InventoryPage({
                           onChange={e => setFormData({...formData, mrp: Number(e.target.value)})}
                         />
                       </div>
-                      <div className="grid gap-2">
+                      <div className="grid gap-3.5">
                         <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stock</label>
                         <Input 
                           type="number" 
@@ -309,7 +309,7 @@ export default function InventoryPage({
                         />
                       </div>
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-3.5">
                       <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex justify-between">
                         Low Stock Threshold
                         <span className="text-primary">{formData.low_stock_threshold} units</span>

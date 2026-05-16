@@ -48,7 +48,7 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
       <div className="w-full max-w-md rounded-xl border border-border/60 bg-background/60 p-6">
-        <h1 className="text-2xl font-bold">{isSignUp ? 'Create Cafe Account' : 'Goat Gaming Login'}</h1>
+        <h1 className="text-2xl font-bold">{isSignUp ? 'Create Cafe Account' : 'CoreControl Login'}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {isSignUp ? 'Register your cafe to start managing.' : 'Sign in with email and password.'}
         </p>

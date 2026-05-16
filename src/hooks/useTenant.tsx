@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
+import { inferOnboardingCompleted, isMissingOnboardingColumnError } from '@/lib/onboarding';
 
 interface TenantContextType {
   tenant: {
     id: string;
     name: string;
     slug: string;
+    onboarding_completed: boolean;
   } | null;
   loading: boolean;
   error: string | null;
@@ -22,7 +24,24 @@ const TenantContext = createContext<TenantContextType>({
 
 export const useTenant = () => useContext(TenantContext);
 
-export const TenantProvider: React.FC<{ children: React.ReactNode; session: Session | null }> = ({ children, session }) => {
+type TenantRow = {
+  id: string;
+  name: string;
+  slug: string;
+  onboarding_completed?: boolean;
+};
+
+async function resolveOnboardingCompleted(row: TenantRow): Promise<boolean> {
+  if (typeof row.onboarding_completed === 'boolean') {
+    return row.onboarding_completed;
+  }
+  return inferOnboardingCompleted(row.id, row.name);
+}
+
+export const TenantProvider: React.FC<{ children: React.ReactNode; session: Session | null }> = ({
+  children,
+  session,
+}) => {
   const [tenant, setTenant] = useState<TenantContextType['tenant']>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,29 +56,44 @@ export const TenantProvider: React.FC<{ children: React.ReactNode; session: Sess
     setLoading(true);
     setError(null);
     try {
-      console.log('Fetching tenant for user:', session.user.id);
-      
-      const { data: profile, error: profileError } = await supabase
+      let profile: { tenant_id: string; tenants: TenantRow | TenantRow[] | null } | null = null;
+
+      const withFlag = await supabase
         .from('profiles')
-        .select('tenant_id, tenants(id, name, slug)')
+        .select('tenant_id, tenants(id, name, slug, onboarding_completed)')
         .eq('id', session.user.id)
         .maybeSingle();
 
-      if (profileError) {
-        console.error('Profile fetch error:', profileError);
-        throw profileError;
-      }
-      
-      console.log('Profile result:', profile);
+      if (withFlag.error && isMissingOnboardingColumnError(withFlag.error.message)) {
+        const basic = await supabase
+          .from('profiles')
+          .select('tenant_id, tenants(id, name, slug)')
+          .eq('id', session.user.id)
+          .maybeSingle();
 
-      if (profile?.tenants) {
-        setTenant(profile.tenants as any);
+        if (basic.error) throw basic.error;
+        profile = basic.data;
+      } else {
+        if (withFlag.error) throw withFlag.error;
+        profile = withFlag.data;
+      }
+
+      const tenantRow = Array.isArray(profile?.tenants) ? profile?.tenants[0] : profile?.tenants;
+
+      if (tenantRow) {
+        const onboarding_completed = await resolveOnboardingCompleted(tenantRow);
+        setTenant({
+          id: tenantRow.id,
+          name: tenantRow.name,
+          slug: tenantRow.slug,
+          onboarding_completed,
+        });
       } else {
         setTenant(null);
       }
-    } catch (err: any) {
-      console.error('Error in useTenant:', err);
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load cafe profile';
+      setError(message);
     } finally {
       setLoading(false);
     }

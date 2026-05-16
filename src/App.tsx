@@ -16,6 +16,7 @@ import InventoryPage from './pages/InventoryPage';
 import CustomersPage from './pages/CustomersPage';
 import ReportsPage from './pages/ReportsPage';
 import DashboardPage from './pages/DashboardPage';
+import OnboardingPage from './pages/OnboardingPage';
 import { TenantProvider, useTenant } from './hooks/useTenant';
 import { Button } from '@/components/ui/button';
 
@@ -26,6 +27,7 @@ type Page = 'dashboard' | 'billing' | 'bookings' | 'settings' | 'inventory' | 'c
 function AppContent() {
   const { tenant, loading: tenantLoading, error: tenantError, refresh } = useTenant();
   const [page, setPage] = useState<Page>('dashboard');
+  const [onboardingDone, setOnboardingDone] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -55,6 +57,15 @@ function AppContent() {
           </Button>
         </div>
       </div>
+    );
+  }
+
+  if (!tenant.onboarding_completed && !onboardingDone) {
+    return (
+      <>
+        <OnboardingPage onComplete={() => setOnboardingDone(true)} />
+        <Toaster position="bottom-right" />
+      </>
     );
   }
 

@@ -61,7 +61,7 @@ export default function ReportsPage({
   onNavigate?: (next: 'dashboard' | 'billing' | 'bookings' | 'settings' | 'inventory' | 'customers' | 'reports') => void;
   onLogout?: () => void;
 }) {
-  useEffect(() => { document.title = 'Reports · Goat Gaming'; }, []);
+  useEffect(() => { document.title = 'Reports · CoreControl'; }, []);
 
   const [bills, setBills] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(true);
