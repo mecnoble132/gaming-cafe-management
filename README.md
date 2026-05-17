@@ -1,4 +1,4 @@
-# Goat Gaming - Station Manager
+# CoreControl - Station Manager
 
 Professional gaming station management and billing software.
 

@@ -1,5 +1,5 @@
 -- =========================================================
--- GOAT GAMING — Supabase SQL (single file)
+-- CORECONTROL — Supabase SQL (single file)
 -- =========================================================
 -- Where: Supabase Dashboard → SQL Editor → New query → paste all → Run
 --

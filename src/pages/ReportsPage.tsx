@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx';
 import { supabase } from '@/lib/supabase';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { useTenant } from '@/hooks/useTenant';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -63,6 +64,7 @@ export default function ReportsPage({
 }) {
   useEffect(() => { document.title = 'Reports · CoreControl'; }, []);
 
+  const { tenant } = useTenant();
   const [bills, setBills] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(true);
   const [preset, setPreset] = useState(7);
@@ -149,8 +151,8 @@ export default function ReportsPage({
       'Subtotal (₹)': b.subtotal,
       'Discount (₹)': b.discount,
       'Grand Total (₹)': b.grand_total,
-      'GG Points Earned': b.points_earned,
-      'GG Points Redeemed': b.points_redeemed,
+      'CC Points Earned': b.points_earned,
+      'CC Points Redeemed': b.points_redeemed,
       'Items': (b.items || []).map(i => `${i.item_name} x${i.quantity}`).join(', '),
     }));
 
@@ -162,7 +164,8 @@ export default function ReportsPage({
     const colWidths = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length, 15) }));
     ws['!cols'] = colWidths;
 
-    const fileName = `GoatGaming_Bills_${format(fromDate, 'ddMMMyyyy')}_to_${format(toDate, 'ddMMMyyyy')}.xlsx`;
+    const safeCafeName = tenant?.name ? tenant.name.replace(/[^a-zA-Z0-9]/g, '_') : 'Cafe';
+    const fileName = `${safeCafeName}_Bills_${format(fromDate, 'ddMMMyyyy')}_to_${format(toDate, 'ddMMMyyyy')}.xlsx`;
     XLSX.writeFile(wb, fileName);
     toast.success('Excel exported successfully!');
   };
@@ -364,7 +367,7 @@ export default function ReportsPage({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border/50 bg-muted/20">
-                      {['Bill ID', 'Date & Time', 'Customer', 'Payment', 'Subtotal', 'Discount', 'Total', 'GG Pts'].map(h => (
+                      {['Bill ID', 'Date & Time', 'Customer', 'Payment', 'Subtotal', 'Discount', 'Total', 'CC Pts'].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
