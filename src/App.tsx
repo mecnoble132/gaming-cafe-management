@@ -9,6 +9,7 @@ import BillingPage from './pages/BillingPage';
 import { useEffect, useState } from 'react';
 import BookingsPage from './pages/BookingsPage';
 import AuthPage from './pages/AuthPage';
+import LandingPage from './pages/LandingPage';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import SettingsPage from './pages/SettingsPage';
@@ -98,6 +99,8 @@ export default function App() {
 
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [showAuth, setShowAuth] = useState(false);
+  const [authIsSignUp, setAuthIsSignUp] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -109,6 +112,9 @@ export default function App() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
+      if (!nextSession) {
+        setShowAuth(false);
+      }
       setAuthLoading(false);
     });
     return () => listener.subscription.unsubscribe();
@@ -119,7 +125,17 @@ export default function App() {
       {authLoading ? (
         <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Checking session...</div>
       ) : !session ? (
-        <AuthPage />
+        showAuth ? (
+          <AuthPage 
+            initialIsSignUp={authIsSignUp} 
+            onBack={() => setShowAuth(false)} 
+          />
+        ) : (
+          <LandingPage onStart={(isSignUp) => {
+            setAuthIsSignUp(isSignUp);
+            setShowAuth(true);
+          }} />
+        )
       ) : (
         <TenantProvider session={session}>
           <AppContent />

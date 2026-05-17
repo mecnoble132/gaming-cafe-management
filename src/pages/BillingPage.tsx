@@ -10,6 +10,9 @@ import { supabase } from '@/lib/supabase';
 import { DEFAULT_PRICING_CONFIG, GamePricingConfig, normalizePricingConfig } from '@/lib/pricing';
 import { DEFAULT_LOYALTY_SETTINGS } from '@/lib/loyalty';
 import { LoyaltySettings } from '@/types';
+import { generateCustomerShortId, generateBillShortId } from '@/lib/utils';
+
+
 
 export default function BillingPage({
   onNavigate,
@@ -139,7 +142,8 @@ export default function BillingPage({
   }, {});
 
   const createCustomer = (payload: { name?: string; phone: string; whatsapp_number?: string }) => {
-    const created: Omit<Customer, 'id'> = {
+    const created = {
+      id: generateCustomerShortId(),
       name: payload.name || payload.phone,
       phone: payload.phone,
       whatsapp_number: payload.whatsapp_number || payload.phone,
@@ -171,6 +175,7 @@ export default function BillingPage({
     items: BillItem[];
   }) => {
     const { data: newBill, error } = await supabase.from('bills').insert({
+      id: generateBillShortId(),
       customer_id: opts.customerId || null,
       customer_name: opts.customerName || 'Cash Customer',
       customer_phone: opts.customerPhone || null,
@@ -276,7 +281,7 @@ export default function BillingPage({
       <Sidebar
         active="Billing"
         onNavigate={(label) => {
-          const map: Record<string, Page> = {
+          const map: Record<string, any> = {
             'Dashboard': 'dashboard',
             'Billing': 'billing',
             'Bookings': 'bookings',

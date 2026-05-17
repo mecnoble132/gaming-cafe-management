@@ -4,7 +4,7 @@ import { Calendar, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, generateCustomerShortId } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import {
   BookingOrBlock,
@@ -44,7 +44,7 @@ type Customer = {
 };
 
 // Fallback color for dynamic types
-const DEFAULT_TYPE_COLOR = 'bg-primary/10 border-primary/20 text-primary-foreground';
+const DEFAULT_TYPE_COLOR = 'bg-primary/20 border-primary/30 text-primary font-bold';
 
 function groupStations(stations: Station[]) {
   return [...stations].sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
@@ -352,10 +352,18 @@ export default function BookingsPage({
   const openNew = (prefill?: Partial<typeof draft>) => {
     const nextDate = (prefill?.date ?? selectedDate) as string;
     const nextStart = (prefill?.start_time ?? draft.start_time) as string;
+    
+    // Default to the first station if no game_type/station_id is provided
+    const defaultStation = stationsOrdered[0];
+    const defaultGameType = defaultStation?.type ?? '';
+    const defaultStationId = defaultStation?.id ?? '';
+
     setPanelMode('new');
     setActiveId(null);
     setDraft((d) => ({
       ...d,
+      game_type: prefill?.game_type || defaultGameType,
+      station_id: prefill?.station_id || defaultStationId,
       ...prefill,
       date: selectedDate,
       start_time: prefill?.start_time ?? d.start_time,
@@ -856,10 +864,12 @@ export default function BookingsPage({
                         onChange={(c) => setDraft((d) => ({ ...d, customer: c }))}
                         onCreate={async (payload) => {
                           const createdPayload = {
+                            id: generateCustomerShortId(),
                             name: payload.name || payload.phone,
                             phone: payload.phone,
                             whatsapp_number: payload.whatsapp_number || payload.phone,
                             loyalty_points: 0,
+                            created_at: new Date().toISOString(),
                             ...(tenantId ? { tenant_id: tenantId } : {})
                           };
                           const { data, error } = await supabase
@@ -905,7 +915,7 @@ export default function BookingsPage({
                         }}
                       >
                         {Array.from(new Set(stations.map(s => s.type))).map(type => (
-                          <option key={type} value={type}>{type.toUpperCase()}</option>
+                          <option key={type as string} value={type as string}>{(type as string).toUpperCase()}</option>
                         ))}
                       </select>
                     </div>
@@ -1052,8 +1062,9 @@ export default function BookingsPage({
   );
 }
 
-function labelType(t: StationType) {
-  return t.toUpperCase();
+function labelType(t: StationType | string | undefined | null) {
+  if (!t || String(t).trim() === '') return 'UNKNOWN';
+  return String(t).toUpperCase();
 }
 
 function StatusPill({ status }: { status: 'upcoming' | 'in_progress' | 'completed' | 'cancelled' }) {

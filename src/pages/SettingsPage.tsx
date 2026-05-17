@@ -306,9 +306,6 @@ export default function SettingsPage({
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold">Stations ({totalStations})</h3>
               <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={addCustomGameType}>
-                  Manage Game Types
-                </Button>
                 <Button size="sm" variant="outline" onClick={addStation}>
                   Add station
                 </Button>
@@ -447,7 +444,7 @@ export default function SettingsPage({
                               <Button 
                                 size="icon" 
                                 variant="ghost" 
-                                className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                                className="h-9 w-9 text-destructive hover:bg-destructive/10"
                                 onClick={() => removeDuration(key, duration)}
                               >
                                 <Trash2 size={14} />

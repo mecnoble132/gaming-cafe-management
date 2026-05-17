@@ -28,6 +28,8 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { useTenant } from '@/hooks/useTenant';
+import { generateCustomerShortId } from '@/lib/utils';
 
 export default function CustomersPage({
   onNavigate,
@@ -37,6 +39,8 @@ export default function CustomersPage({
   onLogout?: () => void;
 }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
+
+  const { tenant } = useTenant();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -136,7 +140,8 @@ export default function CustomersPage({
         name: formData.name.trim(),
         phone: formData.phone.trim(),
         whatsapp_number: formData.whatsapp_number.trim() || formData.phone.trim(),
-        loyalty_points: Number(formData.loyalty_points)
+        loyalty_points: Number(formData.loyalty_points),
+        ...(tenant?.id ? { tenant_id: tenant.id } : {})
       };
 
       let error;
@@ -151,12 +156,14 @@ export default function CustomersPage({
         error = err;
         saved = data;
       } else {
-        // Generate a temporary ID for local UI if needed, but better to let DB handle it.
-        // We'll use a prefix like 'CUS-' + random for new ones if DB doesn't generate prefix.
-        const tempId = `CUS-${Math.floor(1000 + Math.random() * 9000)}`;
+        const payloadWithId = {
+          ...payload,
+          id: generateCustomerShortId(),
+          created_at: new Date().toISOString()
+        };
         const { data, error: err } = await supabase
           .from('customers')
-          .insert({ ...payload, id: tempId, created_at: new Date().toISOString() })
+          .insert(payloadWithId)
           .select()
           .single();
         error = err;
