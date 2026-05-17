@@ -21,12 +21,15 @@ const SHOWCASE_ITEMS = [
 interface AuthPageProps {
   initialIsSignUp?: boolean;
   onBack?: () => void;
+  onShowTerms?: () => void;
+  onShowPrivacy?: () => void;
 }
 
-export default function AuthPage({ initialIsSignUp = false, onBack }: AuthPageProps) {
+export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms, onShowPrivacy }: AuthPageProps) {
   const [isSignUp, setIsSignUp] = useState(initialIsSignUp);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -182,7 +185,32 @@ export default function AuthPage({ initialIsSignUp = false, onBack }: AuthPagePr
                 className="h-11 bg-muted/50 border-border/50 focus:bg-background transition-colors"
               />
             </div>
-            <Button type="submit" className="w-full h-11 text-base font-bold mt-2" disabled={loading}>
+            {isSignUp && (
+              <label className="flex items-start gap-3 cursor-pointer select-none group">
+                <div className="relative mt-0.5 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    className="peer sr-only"
+                  />
+                  <div className="h-4 w-4 rounded border border-border/70 bg-muted/50 peer-checked:bg-primary peer-checked:border-primary transition-all flex items-center justify-center">
+                    {agreedToTerms && (
+                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                        <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                <span className="text-xs text-muted-foreground leading-relaxed">
+                  I agree to the{' '}
+                  <button type="button" onClick={onShowTerms} className="text-primary hover:underline font-medium">Terms of Service</button>
+                  {' '}and{' '}
+                  <button type="button" onClick={onShowPrivacy} className="text-primary hover:underline font-medium">Privacy Policy</button>
+                </span>
+              </label>
+            )}
+            <Button type="submit" className="w-full h-11 text-base font-bold mt-2" disabled={loading || (isSignUp && !agreedToTerms)}>
               {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign in'}
             </Button>
           </form>

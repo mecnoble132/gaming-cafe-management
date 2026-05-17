@@ -137,6 +137,8 @@ export default function App() {
           <AuthPage 
             initialIsSignUp={authIsSignUp} 
             onBack={() => setShowAuth(false)} 
+            onShowTerms={() => setShowTerms(true)}
+            onShowPrivacy={() => setShowPrivacy(true)}
           />
         ) : (
           <LandingPage 
