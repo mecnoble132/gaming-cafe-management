@@ -7,7 +7,7 @@ import imgBooking from '@/assets/booking.png';
 import imgBilling from '@/assets/billing.png';
 import imgReports from '@/assets/reports.png';
 
-export default function LandingPage({ onStart }: { onStart: (isSignUp: boolean) => void }) {
+export default function LandingPage({ onStart, onShowTerms, onShowPrivacy }: { onStart: (isSignUp: boolean) => void; onShowTerms?: () => void; onShowPrivacy?: () => void }) {
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/30 font-sans">
       {/* Navigation */}
@@ -278,14 +278,14 @@ export default function LandingPage({ onStart }: { onStart: (isSignUp: boolean) 
           <div>
             <h4 className="font-semibold text-foreground mb-4">Legal</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Terms of Service</a></li>
+              <li><button onClick={() => onShowPrivacy?.()} className="hover:text-foreground transition-colors">Privacy Policy</button></li>
+              <li><button onClick={() => onShowTerms?.()} className="hover:text-foreground transition-colors">Terms of Service</button></li>
             </ul>
           </div>
           <div>
             <h4 className="font-semibold text-foreground mb-4">Contact</h4>
             <ul className="space-y-2">
-              <li><a href="mailto:support@corecontrol.app" className="hover:text-foreground transition-colors">support@corecontrol.app</a></li>
+              <li><a href="mailto:mecnoble132@gmail.com" className="hover:text-foreground transition-colors">mecnoble132@gmail.com</a></li>
             </ul>
           </div>
         </div>

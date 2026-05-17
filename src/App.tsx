@@ -10,6 +10,8 @@ import { useEffect, useState } from 'react';
 import BookingsPage from './pages/BookingsPage';
 import AuthPage from './pages/AuthPage';
 import LandingPage from './pages/LandingPage';
+import TermsPage from '@/pages/TermsPage';
+import PrivacyPage from '@/pages/PrivacyPage';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import SettingsPage from './pages/SettingsPage';
@@ -100,6 +102,8 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showAuth, setShowAuth] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
   const [authIsSignUp, setAuthIsSignUp] = useState(false);
 
   useEffect(() => {
@@ -125,16 +129,24 @@ export default function App() {
       {authLoading ? (
         <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Checking session...</div>
       ) : !session ? (
-        showAuth ? (
+        showTerms ? (
+          <TermsPage onBack={() => setShowTerms(false)} />
+        ) : showPrivacy ? (
+          <PrivacyPage onBack={() => setShowPrivacy(false)} />
+        ) : showAuth ? (
           <AuthPage 
             initialIsSignUp={authIsSignUp} 
             onBack={() => setShowAuth(false)} 
           />
         ) : (
-          <LandingPage onStart={(isSignUp) => {
-            setAuthIsSignUp(isSignUp);
-            setShowAuth(true);
-          }} />
+          <LandingPage 
+            onStart={(isSignUp) => {
+              setAuthIsSignUp(isSignUp);
+              setShowAuth(true);
+            }} 
+            onShowTerms={() => setShowTerms(true)}
+            onShowPrivacy={() => setShowPrivacy(true)}
+          />
         )
       ) : (
         <TenantProvider session={session}>
