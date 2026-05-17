@@ -35,6 +35,11 @@ export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms,
   const [message, setMessage] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
+  // Update page title based on mode
+  useEffect(() => {
+    document.title = isSignUp ? 'Create Account · CoreControl' : 'Sign In · CoreControl';
+  }, [isSignUp]);
+
   // Auto-rotate showcase
   useEffect(() => {
     const timer = setInterval(() => {

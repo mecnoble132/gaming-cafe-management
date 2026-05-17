@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/layout/Logo';
 import { ArrowRight, BarChart3, CheckCircle2, Gamepad2, LayoutDashboard, MonitorPlay, Users } from 'lucide-react';
+import { useEffect } from 'react';
 
 import imgDashboard from '@/assets/dashboard.png';
 import imgBooking from '@/assets/booking.png';
@@ -8,6 +9,7 @@ import imgBilling from '@/assets/billing.png';
 import imgReports from '@/assets/reports.png';
 
 export default function LandingPage({ onStart, onShowTerms, onShowPrivacy }: { onStart: (isSignUp: boolean) => void; onShowTerms?: () => void; onShowPrivacy?: () => void }) {
+  useEffect(() => { document.title = 'CoreControl · Gaming Cafe Management'; }, []);
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/30 font-sans">
       {/* Navigation */}
@@ -206,7 +208,7 @@ export default function LandingPage({ onStart, onShowTerms, onShowPrivacy }: { o
               <div className="p-8 border-b border-border/50">
                 <h3 className="text-xl font-bold mb-2">CoreControl Pro</h3>
                 <div className="flex items-baseline gap-2 mb-2">
-                  <span className="text-5xl font-black tracking-tight">$49</span>
+                  <span className="text-5xl font-black tracking-tight">₹499</span>
                   <span className="text-muted-foreground">/ month</span>
                 </div>
                 <p className="text-sm text-muted-foreground">Everything you need to run your arena flawlessly.</p>
