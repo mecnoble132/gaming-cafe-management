@@ -138,6 +138,8 @@ export default function SettingsPage({
           };
           if (!s.isNew) {
             payload.id = s.id.trim();
+          } else {
+            payload.id = `STN-${crypto.randomUUID().replace(/-/g, '').substring(0, 6).toUpperCase()}`;
           }
           return payload;
         })

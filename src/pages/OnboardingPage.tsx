@@ -152,6 +152,7 @@ export default function OnboardingPage({ onComplete }: { onComplete: () => void 
     setSaving(true);
     try {
       const stationPayload = plannedStations.map((station) => ({
+        id: `STN-${crypto.randomUUID().replace(/-/g, '').substring(0, 6).toUpperCase()}`,
         name: station.name.trim() || station.type.toUpperCase(),
         type: station.type,
         tenant_id: tenantId,

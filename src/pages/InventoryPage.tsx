@@ -118,6 +118,8 @@ export default function InventoryPage({
 
       if (editingProduct) {
         payload.id = editingProduct.id;
+      } else {
+        payload.id = `PRD-${crypto.randomUUID().replace(/-/g, '').substring(0, 6).toUpperCase()}`;
       }
 
       const { error } = await supabase
@@ -242,11 +244,9 @@ export default function InventoryPage({
                   resetForm();
                 }
               }}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="gap-2" onClick={openAdd}>
-                    <Plus size={16} /> Add Product
-                  </Button>
-                </DialogTrigger>
+                <Button size="sm" className="gap-2" onClick={openAdd}>
+                  <Plus size={16} /> Add Product
+                </Button>
                 <DialogContent className="sm:max-w-[425px] bg-background/95 backdrop-blur-xl border-border/50">
                   <DialogHeader>
                     <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>

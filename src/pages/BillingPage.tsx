@@ -151,6 +151,7 @@ export default function BillingPage({
     }
 
     const created = {
+      id: `CUS-${crypto.randomUUID().replace(/-/g, '').substring(0, 6).toUpperCase()}`,
       name: payload.name || payload.phone,
       phone: payload.phone,
       whatsapp_number: payload.whatsapp_number || payload.phone,

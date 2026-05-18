@@ -857,6 +857,7 @@ export default function BookingsPage({
                         onChange={(c) => setDraft((d) => ({ ...d, customer: c }))}
                         onCreate={async (payload) => {
                           const createdPayload = {
+                            id: `CUS-${crypto.randomUUID().replace(/-/g, '').substring(0, 6).toUpperCase()}`,
                             name: payload.name || payload.phone,
                             phone: payload.phone,
                             whatsapp_number: payload.whatsapp_number || payload.phone,

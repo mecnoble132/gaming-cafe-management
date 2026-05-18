@@ -144,6 +144,10 @@ export default function CustomersPage({
         ...(tenant?.id ? { tenant_id: tenant.id } : {})
       };
 
+      if (!editingCustomer) {
+        payload.id = `CUS-${crypto.randomUUID().replace(/-/g, '').substring(0, 6).toUpperCase()}`;
+      }
+
       let error;
       if (editingCustomer) {
         const { error: err } = await supabase
