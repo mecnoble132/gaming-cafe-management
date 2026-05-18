@@ -64,6 +64,10 @@ export default function CustomersPage({
   useEffect(() => {
     document.title = 'Customers · CoreControl';
     loadCustomers();
+
+    const handler = () => loadCustomers();
+    window.addEventListener('app-page-changed', handler);
+    return () => window.removeEventListener('app-page-changed', handler);
   }, []);
 
   const loadCustomers = async () => {

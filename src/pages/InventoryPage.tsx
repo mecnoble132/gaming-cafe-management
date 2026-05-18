@@ -60,6 +60,10 @@ export default function InventoryPage({
   useEffect(() => {
     document.title = 'Inventory · CoreControl';
     loadProducts();
+
+    const handler = () => loadProducts();
+    window.addEventListener('app-page-changed', handler);
+    return () => window.removeEventListener('app-page-changed', handler);
   }, []);
 
   async function loadProducts() {

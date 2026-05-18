@@ -49,6 +49,10 @@ export default function BillingPage({
       if (loyaltyData) setLoyaltySettings(loyaltyData as LoyaltySettings);
     };
     loadData();
+
+    const handler = () => loadData();
+    window.addEventListener('app-page-changed', handler);
+    return () => window.removeEventListener('app-page-changed', handler);
   }, []);
 
   // Handle prefill from Bookings

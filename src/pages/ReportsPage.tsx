@@ -97,6 +97,10 @@ export default function ReportsPage({
       setLoading(false);
     };
     load();
+
+    const handler = () => load();
+    window.addEventListener('app-page-changed', handler);
+    return () => window.removeEventListener('app-page-changed', handler);
   }, [fromDate, toDate]);
 
   const filtered = bills;

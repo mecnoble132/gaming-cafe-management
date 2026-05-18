@@ -23,6 +23,7 @@ import OnboardingPage from './pages/OnboardingPage';
 import { TenantProvider, useTenant } from './hooks/useTenant';
 import { Button } from '@/components/ui/button';
 import { PageName } from '@/lib/navigation';
+import { cn } from '@/lib/utils';
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,19 @@ function AppContent() {
   };
 
   const nav = (next: PageName) => setPage(next);
+
+  useEffect(() => {
+    const pageTitles: Record<PageName, string> = {
+      dashboard: 'Command Center · CoreControl',
+      billing: 'Billing · CoreControl',
+      bookings: 'Bookings · CoreControl',
+      inventory: 'Inventory · CoreControl',
+      customers: 'Customers · CoreControl',
+      reports: 'Reports · CoreControl',
+      settings: 'Settings · CoreControl',
+    };
+    document.title = pageTitles[page] || 'CoreControl';
+  }, [page]);
 
   if (tenantLoading) {
     return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Loading cafe data...</div>;
@@ -73,21 +87,27 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans antialiased">
-      {page === 'dashboard' ? (
+      <div className={cn(page === 'dashboard' ? 'block' : 'hidden')}>
         <DashboardPage onNavigate={nav} onLogout={handleLogout} />
-      ) : page === 'billing' ? (
+      </div>
+      <div className={cn(page === 'billing' ? 'block' : 'hidden')}>
         <BillingPage onNavigate={nav} onLogout={handleLogout} />
-      ) : page === 'bookings' ? (
+      </div>
+      <div className={cn(page === 'bookings' ? 'block' : 'hidden')}>
         <BookingsPage onNavigate={nav} onLogout={handleLogout} />
-      ) : page === 'inventory' ? (
+      </div>
+      <div className={cn(page === 'inventory' ? 'block' : 'hidden')}>
         <InventoryPage onNavigate={nav} onLogout={handleLogout} />
-      ) : page === 'customers' ? (
+      </div>
+      <div className={cn(page === 'customers' ? 'block' : 'hidden')}>
         <CustomersPage onNavigate={nav} onLogout={handleLogout} />
-      ) : page === 'reports' ? (
+      </div>
+      <div className={cn(page === 'reports' ? 'block' : 'hidden')}>
         <ReportsPage onNavigate={nav} onLogout={handleLogout} />
-      ) : (
+      </div>
+      <div className={cn(page === 'settings' ? 'block' : 'hidden')}>
         <SettingsPage onNavigate={nav} onLogout={handleLogout} />
-      )}
+      </div>
       <Toaster position="bottom-right" />
     </div>
   );

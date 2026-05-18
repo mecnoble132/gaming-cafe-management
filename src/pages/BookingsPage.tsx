@@ -324,6 +324,10 @@ export default function BookingsPage({
     };
 
     load();
+
+    const handler = () => load();
+    window.addEventListener('app-page-changed', handler);
+    return () => window.removeEventListener('app-page-changed', handler);
   }, []);
 
   const stationsOrdered = useMemo(() => groupStations(stations), [stations]);

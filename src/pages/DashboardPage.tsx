@@ -114,6 +114,10 @@ export default function DashboardPage({
     };
 
     loadDashboard();
+
+    const handler = () => loadDashboard();
+    window.addEventListener('app-page-changed', handler);
+    return () => window.removeEventListener('app-page-changed', handler);
   }, []);
 
   const revenueGrowth = data.revenueYesterday > 0 
