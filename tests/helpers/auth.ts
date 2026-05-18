@@ -8,8 +8,36 @@ const __dirname = path.dirname(__filename);
 export const STORAGE_STATE_PATH = path.join(__dirname, '../../playwright/.auth/user.json');
 
 // Mock data stores
-let customersList: any[] = [];
+let customersList: any[] = [
+  { id: 'CUS-MOCK01', name: 'John Doe', phone: '9876543210', loyalty_points: 150, visits: 5 }
+];
 let productsList: any[] = [];
+let stationsList: any[] = [
+  { id: 'stn-1', name: 'PC 1', type: 'pc', tenant_id: 'mock-tenant-id' },
+  { id: 'stn-2', name: 'PS5 1', type: 'ps5', tenant_id: 'mock-tenant-id' }
+];
+let bookingsList: any[] = [];
+let billsList: any[] = [];
+let loyaltySettingsObj: any = {
+  id: 'mock-loyalty-settings-id',
+  points_per_currency_unit: 10,
+  redemption_value: 0.1,
+  min_redemption_points: 100,
+  tenant_id: 'mock-tenant-id'
+};
+let pricingSettingsObj: any = {
+  id: 'mock-pricing-settings-id',
+  config: {
+    pc: { '30': 50, '60': 100, '90': 150 },
+    ps5: { '30': 60, '60': 120, '90': 180 }
+  },
+  tenant_id: 'mock-tenant-id'
+};
+let mockTenantOnboardingCompleted = true;
+
+export function setMockOnboarding(completed: boolean) {
+  mockTenantOnboardingCompleted = completed;
+}
 
 /**
  * Reusable E2E helper to log in a test user. Supports auto-adaptive CORS-compliant network mock routing.
@@ -139,7 +167,7 @@ export async function loginAs(page: Page, email?: string, password?: string) {
             id: 'mock-tenant-id',
             name: 'E2E Playwright Cafe',
             slug: 'playwright-staging',
-            onboarding_completed: true
+            onboarding_completed: mockTenantOnboardingCompleted
           }
         })
       });
@@ -148,14 +176,34 @@ export async function loginAs(page: Page, email?: string, password?: string) {
     // 4. Intercept Tenants Fetch (returns a single object)
     await page.route('**/rest/v1/tenants*', async route => {
       const request = route.request();
-      if (request.method() === 'OPTIONS') {
+      const method = request.method();
+      if (method === 'OPTIONS') {
         await route.fulfill({
           status: 200,
           headers: {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization'
+            'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
+            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization, prefer'
           }
+        });
+        return;
+      }
+
+      if (method === 'PATCH') {
+        const body = JSON.parse(request.postData() || '{}');
+        if (body.onboarding_completed !== undefined) {
+          mockTenantOnboardingCompleted = body.onboarding_completed;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: { 'Access-Control-Allow-Origin': '*' },
+          body: JSON.stringify([{
+            id: 'mock-tenant-id',
+            name: body.name || 'E2E Playwright Cafe',
+            slug: 'playwright-staging',
+            onboarding_completed: mockTenantOnboardingCompleted
+          }])
         });
         return;
       }
@@ -168,7 +216,7 @@ export async function loginAs(page: Page, email?: string, password?: string) {
           id: 'mock-tenant-id',
           name: 'E2E Playwright Cafe',
           slug: 'playwright-staging',
-          onboarding_completed: true
+          onboarding_completed: mockTenantOnboardingCompleted
         })
       });
     });
@@ -181,39 +229,54 @@ export async function loginAs(page: Page, email?: string, password?: string) {
           status: 200,
           headers: {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization'
+            'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization, prefer'
           }
         });
         return;
       }
-
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify([
-          { id: 'stn-1', name: 'PC 1', type: 'pc', tenant_id: 'mock-tenant-id' },
-          { id: 'stn-2', name: 'PS5 1', type: 'ps5', tenant_id: 'mock-tenant-id' }
-        ])
-      });
+      const method = request.method();
+      if (method === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(stationsList) });
+      } else if (method === 'POST') {
+        const body = JSON.parse(request.postData() || '{}');
+        const newStation = { id: `STN-${Date.now()}`, ...body, created_at: new Date().toISOString() };
+        stationsList.push(newStation);
+        await route.fulfill({ status: 201, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(newStation) });
+      } else if (method === 'DELETE') {
+        const url = new URL(request.url());
+        const idParam = url.searchParams.get('id');
+        const id = idParam ? idParam.replace('eq.', '') : '';
+        stationsList = stationsList.filter(s => s.id !== id);
+        await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Deleted' }) });
+      }
     });
 
     // 6. Intercept Booking Settings (returns single object)
     await page.route('**/rest/v1/booking_settings*', async route => {
       const request = route.request();
-      if (request.method() === 'OPTIONS') {
+      const method = request.method();
+      if (method === 'OPTIONS') {
         await route.fulfill({
           status: 200,
           headers: {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization'
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization, prefer'
           }
         });
         return;
       }
-
+      if (method === 'POST') {
+        const body = JSON.parse(request.postData() || '{}');
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          headers: { 'Access-Control-Allow-Origin': '*' },
+          body: JSON.stringify(body)
+        });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -231,31 +294,29 @@ export async function loginAs(page: Page, email?: string, password?: string) {
     // 7. Intercept Pricing Settings (returns single object)
     await page.route('**/rest/v1/pricing_settings*', async route => {
       const request = route.request();
-      if (request.method() === 'OPTIONS') {
+      const method = request.method();
+      if (method === 'OPTIONS') {
         await route.fulfill({
           status: 200,
           headers: {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization'
+            'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization, prefer'
           }
         });
         return;
       }
-
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({
-          id: 'mock-pricing-settings-id',
-          config: {
-            pc: { '30': 50, '60': 100, '90': 150 },
-            ps5: { '30': 60, '60': 120, '90': 180 }
-          },
-          tenant_id: 'mock-tenant-id'
-        })
-      });
+      if (method === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(pricingSettingsObj) });
+      } else if (method === 'POST') {
+        const body = JSON.parse(request.postData() || '{}');
+        pricingSettingsObj = { ...pricingSettingsObj, ...body };
+        await route.fulfill({ status: 201, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(pricingSettingsObj) });
+      } else if (method === 'PATCH') {
+        const body = JSON.parse(request.postData() || '{}');
+        pricingSettingsObj = { ...pricingSettingsObj, ...body };
+        await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify([pricingSettingsObj]) });
+      }
     });
 
     // 8. Intercept Customers CRUD
@@ -293,14 +354,21 @@ export async function loginAs(page: Page, email?: string, password?: string) {
         });
       } else if (method === 'PATCH') {
         const body = JSON.parse(request.postData() || '{}');
-        customersList = customersList.map(c => c.id === body.id ? { ...c, ...body } : c);
+        const url = new URL(request.url());
+        const idParam = url.searchParams.get('id');
+        const id = idParam ? idParam.replace('eq.', '') : body.id;
+        customersList = customersList.map(c => c.id === id ? { ...c, ...body } : c);
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
           headers: { 'Access-Control-Allow-Origin': '*' },
-          body: JSON.stringify(body)
+          body: JSON.stringify([body])
         });
       } else if (method === 'DELETE') {
+        const url = new URL(request.url());
+        const idParam = url.searchParams.get('id');
+        const id = idParam ? idParam.replace('eq.', '') : '';
+        customersList = customersList.filter(c => c.id !== id);
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -345,14 +413,21 @@ export async function loginAs(page: Page, email?: string, password?: string) {
         });
       } else if (method === 'PATCH') {
         const body = JSON.parse(request.postData() || '{}');
-        productsList = productsList.map(p => p.id === body.id ? { ...p, ...body } : p);
+        const url = new URL(request.url());
+        const idParam = url.searchParams.get('id');
+        const id = idParam ? idParam.replace('eq.', '') : body.id;
+        productsList = productsList.map(p => p.id === id ? { ...p, ...body } : p);
         await route.fulfill({
-          status: 201,
+          status: 200,
           contentType: 'application/json',
           headers: { 'Access-Control-Allow-Origin': '*' },
-          body: JSON.stringify(body)
+          body: JSON.stringify([body])
         });
       } else if (method === 'DELETE') {
+        const url = new URL(request.url());
+        const idParam = url.searchParams.get('id');
+        const id = idParam ? idParam.replace('eq.', '') : '';
+        productsList = productsList.filter(p => p.id !== id);
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -370,17 +445,21 @@ export async function loginAs(page: Page, email?: string, password?: string) {
           status: 200,
           headers: {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization'
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization, prefer'
           }
         });
         return;
       }
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify([])
-      });
+      const method = request.method();
+      if (method === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(billsList) });
+      } else if (method === 'POST') {
+        const body = JSON.parse(request.postData() || '{}');
+        const newBill = { id: `BILL-${Date.now()}`, ...body, created_at: new Date().toISOString() };
+        billsList.push(newBill);
+        await route.fulfill({ status: 201, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(newBill) });
+      }
     });
 
     // 11. Intercept Bookings
@@ -391,18 +470,85 @@ export async function loginAs(page: Page, email?: string, password?: string) {
           status: 200,
           headers: {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization'
+            'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization, prefer'
           }
         });
         return;
       }
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify([])
-      });
+      const method = request.method();
+      if (method === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(bookingsList) });
+      } else if (method === 'POST') {
+        const body = JSON.parse(request.postData() || '{}');
+        const newBooking = { id: `BKG-${Date.now()}`, ...body, created_at: new Date().toISOString() };
+        bookingsList.push(newBooking);
+        await route.fulfill({ status: 201, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(newBooking) });
+      } else if (method === 'DELETE') {
+        const url = new URL(request.url());
+        const idParam = url.searchParams.get('id');
+        const id = idParam ? idParam.replace('eq.', '') : '';
+        bookingsList = bookingsList.filter(b => b.id !== id);
+        await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Deleted' }) });
+      }
     });
+    // 12. Intercept Loyalty Settings
+    await page.route('**/rest/v1/loyalty_settings*', async route => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({
+          status: 200,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
+            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization, prefer'
+          }
+        });
+        return;
+      }
+      const method = request.method();
+      if (method === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(loyaltySettingsObj) });
+      } else if (method === 'PATCH') {
+        const body = JSON.parse(request.postData() || '{}');
+        loyaltySettingsObj = { ...loyaltySettingsObj, ...body };
+        await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify([loyaltySettingsObj]) });
+      }
+    });
+
+    // 13. Intercept Bill Items & Loyalty Transactions
+    await page.route('**/rest/v1/bill_items*', async route => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({
+          status: 200,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization, prefer'
+          }
+        });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify([]) });
+    });
+
+    await page.route('**/rest/v1/loyalty_transactions*', async route => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({
+          status: 200,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization, prefer'
+          }
+        });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify([]) });
+    });
+
   }
 
   // Go to Landing Page
@@ -440,23 +586,20 @@ export async function loginAs(page: Page, email?: string, password?: string) {
 
     // Step 0: Welcome
     await page.getByPlaceholder('e.g. Neon Arena Gaming Lounge').fill('E2E Playwright Cafe');
-    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: 'Continue' }).click();
     await page.waitForTimeout(500);
 
     // Step 1: Stations
-    await page.getByPlaceholder('e.g. PC, PS5, VR').fill('PC');
-    await page.getByPlaceholder('1').fill('2');
-    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByPlaceholder('e.g. PS5, PC, VR').fill('PC');
+    await page.locator('input[type="number"]').first().fill('2');
+    await page.getByRole('button', { name: 'Continue' }).click();
     await page.waitForTimeout(500);
 
     // Step 2: Hours/Pricing config
-    await page.getByPlaceholder('₹').first().fill('100');
+    await page.locator('input[type="number"]').first().fill('100');
     
     // Complete setup
-    const finishPromise = page.waitForResponse(res => res.url().includes('/rest/v1/profiles') || res.url().includes('/rest/v1/stations'));
-    await page.getByRole('button', { name: 'Finish Setup' }).click();
-    await finishPromise;
-
+    await page.getByRole('button', { name: 'Finish setup' }).click();
     console.log('Onboarding auto-completed!');
     await page.waitForTimeout(1000);
   }

@@ -187,6 +187,7 @@ export default function OnboardingPage({ onComplete }: { onComplete: () => void 
       onComplete();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to complete setup.';
+      console.error('Onboarding failed:', err);
       toast.error(message);
     } finally {
       setSaving(false);

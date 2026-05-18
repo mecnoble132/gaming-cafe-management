@@ -39,8 +39,8 @@ test.describe('Application Navigation & Page Integrity', () => {
   });
 
   const pages = [
-    { name: 'Dashboard', heading: 'Dashboard' },
-    { name: 'Billing', heading: 'New Bill' },
+    { name: 'Dashboard', heading: 'Command Center' },
+    { name: 'Billing', heading: 'Billing' },
     { name: 'Bookings', heading: 'Bookings' },
     { name: 'Customers', heading: 'Customers' },
     { name: 'Inventory', heading: 'Inventory' },

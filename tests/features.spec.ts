@@ -28,10 +28,10 @@ test.describe('Core Features CRUD Journeys', () => {
     await expect(page.getByRole('heading', { name: 'Add New Customer' })).toBeVisible();
 
     // 3. Test Required Field Validation
-    const saveButton = page.getByRole('button', { name: 'Add Customer', exact: true });
+    const saveButton = page.getByRole('dialog').getByRole('button', { name: 'Add Customer', exact: true });
     await saveButton.click();
     // Verify toast error appeared for validation
-    await expect(page.locator('text=Please fill all required fields')).toBeVisible();
+    await expect(page.locator('text=Name and Phone are required')).toBeVisible();
 
     // 4. Fill form with valid data
     const uniqueName = `PW QA Customer ${Date.now()}`;
@@ -90,20 +90,20 @@ test.describe('Core Features CRUD Journeys', () => {
 
     // 2. Open Add Product Dialog
     // Note: The UI has multiple buttons matching "Add Product" (desktop/mobile layout)
-    await page.getAllByRole('button', { name: 'Add Product' }).first().click();
+    await page.getByRole('button', { name: 'Add Product' }).first().click();
     await expect(page.getByRole('heading', { name: 'Add New Product' })).toBeVisible();
 
     // 3. Test Required Field Validation
-    const saveButton = page.getByRole('button', { name: 'Add Product', exact: true });
+    const saveButton = page.getByRole('dialog').getByRole('button', { name: 'Save Product', exact: true });
     await saveButton.click();
     await expect(page.locator('text=Please fill all required fields')).toBeVisible();
 
     // 4. Fill form with valid data
     const uniqueName = `PW Drink ${Date.now()}`;
-    await page.getByPlaceholder('e.g. Energy Drink').fill(uniqueName);
+    await page.getByPlaceholder('e.g. Red Bull').fill(uniqueName);
     await page.getByPlaceholder('e.g. Drinks').fill('Snacks');
-    await page.getByPlaceholder('₹').fill('45');
-    await page.getByPlaceholder('Available stock').fill('50');
+    await page.locator('input[type="number"]').first().fill('45');
+    await page.locator('input[type="number"]').nth(1).fill('50');
 
     // Click "Add Product" to save and wait for Supabase REST API response
     const savePromise = page.waitForResponse(
@@ -120,10 +120,10 @@ test.describe('Core Features CRUD Journeys', () => {
     await expect(row).toBeVisible();
 
     // 6. Edit the product (Update)
-    await row.getByRole('button').first().click(); // Click Edit icon
+    await row.getByRole('button').nth(2).click(); // Click Edit icon
     await expect(page.getByRole('heading', { name: 'Edit Product' })).toBeVisible();
 
-    await page.getByPlaceholder('₹').fill('50');
+    await page.locator('input[type="number"]').first().fill('50');
     const updatePromise = page.waitForResponse(
       response => response.url().includes('/rest/v1/products') && response.status() === 201
     );
@@ -135,7 +135,7 @@ test.describe('Core Features CRUD Journeys', () => {
     await expect(row.locator('text=₹50')).toBeVisible();
 
     // 7. Delete the product (Delete)
-    await row.getByRole('button').nth(1).click(); // Click Trash icon
+    await row.getByRole('button').nth(3).click(); // Click Trash icon
     await expect(page.getByRole('heading', { name: 'Confirm Deletion' })).toBeVisible();
 
     const deletePromise = page.waitForResponse(
