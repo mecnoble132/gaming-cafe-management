@@ -22,21 +22,20 @@ import DashboardPage from './pages/DashboardPage';
 import OnboardingPage from './pages/OnboardingPage';
 import { TenantProvider, useTenant } from './hooks/useTenant';
 import { Button } from '@/components/ui/button';
+import { PageName } from '@/lib/navigation';
 
 const queryClient = new QueryClient();
 
-type Page = 'dashboard' | 'billing' | 'bookings' | 'settings' | 'inventory' | 'customers' | 'reports';
-
 function AppContent() {
   const { tenant, loading: tenantLoading, error: tenantError, refresh } = useTenant();
-  const [page, setPage] = useState<Page>('dashboard');
+  const [page, setPage] = useState<PageName>('dashboard');
   const [onboardingDone, setOnboardingDone] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
 
-  const nav = (next: Page) => setPage(next);
+  const nav = (next: PageName) => setPage(next);
 
   if (tenantLoading) {
     return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Loading cafe data...</div>;

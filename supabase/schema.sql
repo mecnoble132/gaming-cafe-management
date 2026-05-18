@@ -216,6 +216,7 @@ after insert on auth.users
 for each row execute procedure public.handle_new_user_profile();
 
 -- 9. Atomic Operations
+drop function if exists public.decrement_stock(text, integer);
 create or replace function public.decrement_stock(product_id text, amount integer)
 returns void language plpgsql security definer as $$
 begin
@@ -223,6 +224,90 @@ begin
   set stock_quantity = greatest(0, stock_quantity - amount)
   where id = product_id
     and tenant_id = public.get_auth_tenant_id();
+end;
+$$;
+
+drop function if exists public.adjust_loyalty_points(text, integer);
+create or replace function public.adjust_loyalty_points(customer_id text, delta integer)
+returns void language plpgsql security definer as $$
+begin
+  update public.customers
+  set loyalty_points = greatest(0, loyalty_points + delta),
+      visits = visits + 1
+  where id = customer_id
+    and tenant_id = public.get_auth_tenant_id();
+end;
+$$;
+
+-- Atomically finalize a bill: create bill record, update stock, and update loyalty
+-- Dropping ALL previous variations to clear schema cache definitively
+drop function if exists public.finalize_bill(text, text, text, text, integer, integer, integer, integer, integer, jsonb);
+drop function if exists public.finalize_bill(text, text, text, text, numeric, numeric, numeric, numeric, numeric, jsonb);
+drop function if exists public.finalize_bill(jsonb);
+drop function if exists public.finalize_bill_v3(jsonb);
+drop function if exists public.atomic_finalize_bill(jsonb);
+
+create or replace function public.atomic_finalize_bill(p_data jsonb)
+returns text language plpgsql security definer as $$
+declare
+  v_bill_id text;
+  v_item jsonb;
+  v_product_id text;
+  v_quantity integer;
+  v_tenant_id uuid;
+begin
+  v_tenant_id := public.get_auth_tenant_id();
+  if v_tenant_id is null then
+    raise exception 'Not authorized: tenant_id not found for current user';
+  end if;
+
+  -- 1. Create the bill
+  insert into public.bills (
+    tenant_id, customer_id, customer_name, customer_phone,
+    payment_method, subtotal, discount, grand_total,
+    points_earned, points_redeemed, items
+  )
+  values (
+    v_tenant_id, 
+    (p_data->>'p_customer_id'), 
+    coalesce(p_data->>'p_customer_name', 'Cash Customer'), 
+    (p_data->>'p_customer_phone'),
+    coalesce(p_data->>'p_payment_method', 'cash'), 
+    coalesce((p_data->>'p_subtotal')::integer, 0), 
+    coalesce((p_data->>'p_discount')::integer, 0), 
+    coalesce((p_data->>'p_grand_total')::integer, 0),
+    coalesce((p_data->>'p_points_earned')::integer, 0), 
+    coalesce((p_data->>'p_points_redeemed')::integer, 0), 
+    coalesce(p_data->'p_items', '[]'::jsonb)
+  )
+  returning id into v_bill_id;
+
+  -- 2. Update stock for products
+  if p_data->'p_items' is not null and jsonb_array_length(p_data->'p_items') > 0 then
+    for v_item in select * from jsonb_array_elements(p_data->'p_items')
+    loop
+      if (v_item->>'item_type' = 'product' and (v_item->'metadata'->>'product_id') is not null) then
+        v_product_id := v_item->'metadata'->>'product_id';
+        v_quantity := (v_item->>'quantity')::integer;
+        
+        update public.products
+        set stock_quantity = greatest(0, stock_quantity - v_quantity)
+        where id = v_product_id
+          and tenant_id = v_tenant_id;
+      end if;
+    end loop;
+  end if;
+
+  -- 3. Update customer loyalty and visits
+  if (p_data->>'p_customer_id') is not null then
+    update public.customers
+    set loyalty_points = greatest(0, loyalty_points + coalesce((p_data->>'p_points_earned')::integer, 0) - coalesce((p_data->>'p_points_redeemed')::integer, 0)),
+        visits = visits + 1
+    where id = (p_data->>'p_customer_id')
+      and tenant_id = v_tenant_id;
+  end if;
+
+  return v_bill_id;
 end;
 $$;
 

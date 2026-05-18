@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { useTenant } from '@/hooks/useTenant';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { getRouteByLabel } from '@/lib/navigation';
 
 type Bill = {
   id: string;
@@ -72,17 +73,6 @@ export default function ReportsPage({
   const [customTo, setCustomTo] = useState('');
   const [useCustom, setUseCustom] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      const { data, error } = await supabase.from('bills').select('*').order('created_at', { ascending: false });
-      if (error) toast.error('Failed to load bills: ' + error.message);
-      else setBills((data as Bill[]) || []);
-      setLoading(false);
-    };
-    load();
-  }, []);
-
   const { fromDate, toDate } = useMemo(() => {
     if (useCustom && customFrom && customTo) {
       return { fromDate: startOfDay(parseISO(customFrom)), toDate: endOfDay(parseISO(customTo)) };
@@ -92,12 +82,24 @@ export default function ReportsPage({
     return { fromDate: from, toDate: to };
   }, [preset, customFrom, customTo, useCustom]);
 
-  const filtered = useMemo(() =>
-    bills.filter(b => {
-      const d = parseISO(b.created_at);
-      return d >= fromDate && d <= toDate;
-    }),
-  [bills, fromDate, toDate]);
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('bills')
+        .select('*')
+        .gte('created_at', fromDate.toISOString())
+        .lte('created_at', toDate.toISOString())
+        .order('created_at', { ascending: false });
+        
+      if (error) toast.error('Failed to load bills: ' + error.message);
+      else setBills((data as Bill[]) || []);
+      setLoading(false);
+    };
+    load();
+  }, [fromDate, toDate]);
+
+  const filtered = bills;
 
   const stats = useMemo(() => {
     const revenue = filtered.reduce((s, b) => s + b.grand_total, 0);
@@ -171,16 +173,8 @@ export default function ReportsPage({
   };
 
   const navTo = (label: string) => {
-    const map: Record<string, any> = {
-      'Dashboard': 'dashboard',
-      'Billing': 'billing',
-      'Bookings': 'bookings',
-      'Customers': 'customers',
-      'Inventory': 'inventory',
-      'Reports': 'reports',
-      'Settings': 'settings'
-    };
-    if (map[label]) onNavigate?.(map[label]);
+    const route = getRouteByLabel(label);
+    if (route) onNavigate?.(route);
   };
 
   return (

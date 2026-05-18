@@ -20,6 +20,7 @@ import { supabase } from '@/lib/supabase';
 import { Product } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { getRouteByLabel } from '@/lib/navigation';
 import { 
   Dialog, 
   DialogContent, 
@@ -99,7 +100,7 @@ export default function InventoryPage({
   }, [products]);
 
   const handleSave = async () => {
-    if (!formData.id || !formData.name || !formData.category) {
+    if (!formData.name || !formData.category) {
       toast.error('Please fill all required fields');
       return;
     }
@@ -117,9 +118,6 @@ export default function InventoryPage({
 
       if (editingProduct) {
         payload.id = editingProduct.id;
-      } else {
-        payload.id = `PRD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-        payload.created_at = new Date().toISOString();
       }
 
       const { error } = await supabase
@@ -195,8 +193,6 @@ export default function InventoryPage({
 
   const openAdd = () => {
     resetForm();
-    const newId = `PRD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-    setFormData(prev => ({ ...prev, id: newId }));
     setIsAddDialogOpen(true);
   };
 
@@ -218,16 +214,8 @@ export default function InventoryPage({
       <Sidebar
         active="Inventory"
         onNavigate={(label) => {
-          const map: Record<string, any> = {
-            'Dashboard': 'dashboard',
-            'Billing': 'billing',
-            'Bookings': 'bookings',
-            'Customers': 'customers',
-            'Inventory': 'inventory',
-            'Reports': 'reports',
-            'Settings': 'settings'
-          };
-          if (map[label]) onNavigate?.(map[label]);
+          const route = getRouteByLabel(label);
+          if (route) onNavigate?.(route);
         }}
         onLogout={onLogout}
       />

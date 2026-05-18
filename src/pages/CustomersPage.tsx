@@ -29,7 +29,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useTenant } from '@/hooks/useTenant';
-import { generateCustomerShortId } from '@/lib/utils';
+import { getRouteByLabel } from '@/lib/navigation';
 
 export default function CustomersPage({
   onNavigate,
@@ -145,29 +145,17 @@ export default function CustomersPage({
       };
 
       let error;
-      let saved;
       if (editingCustomer) {
-        const { data, error: err } = await supabase
+        const { error: err } = await supabase
           .from('customers')
           .update(payload)
-          .eq('id', editingCustomer.id)
-          .select()
-          .single();
+          .eq('id', editingCustomer.id);
         error = err;
-        saved = data;
       } else {
-        const payloadWithId = {
-          ...payload,
-          id: generateCustomerShortId(),
-          created_at: new Date().toISOString()
-        };
-        const { data, error: err } = await supabase
+        const { error: err } = await supabase
           .from('customers')
-          .insert(payloadWithId)
-          .select()
-          .single();
+          .insert(payload);
         error = err;
-        saved = data;
       }
 
       if (error) throw error;
@@ -231,16 +219,8 @@ export default function CustomersPage({
       <Sidebar
         active="Customers"
         onNavigate={(label) => {
-          const map: Record<string, any> = {
-            'Dashboard': 'dashboard',
-            'Billing': 'billing',
-            'Bookings': 'bookings',
-            'Customers': 'customers',
-            'Inventory': 'inventory',
-            'Reports': 'reports',
-            'Settings': 'settings'
-          };
-          if (map[label]) onNavigate?.(map[label]);
+          const route = getRouteByLabel(label);
+          if (route) onNavigate?.(route);
         }}
         onLogout={onLogout}
       />

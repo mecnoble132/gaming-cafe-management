@@ -50,16 +50,36 @@ export interface Bill {
   status: 'finalized' | 'cancelled';
 }
 
-export interface BillItem {
+export interface BaseBillItem {
   id: string;
   bill_id: string;
-  item_type: 'session' | 'product';
   item_name: string;
   quantity: number;
   unit_price: number;
   total_price: number;
-  metadata?: any; // e.g., duration, controllers
 }
+
+export interface SessionBillItem extends BaseBillItem {
+  item_type: 'session';
+  metadata: {
+    duration_minutes: number;
+    game_type: string;
+    controllers?: number;
+    station_id?: string;
+    station_name?: string;
+  };
+}
+
+export interface ProductBillItem extends BaseBillItem {
+  item_type: 'product';
+  metadata: {
+    product_id: string;
+    category: string;
+    low_stock?: boolean;
+  };
+}
+
+export type BillItem = SessionBillItem | ProductBillItem;
 
 export interface LoyaltyTransaction {
   id: string;

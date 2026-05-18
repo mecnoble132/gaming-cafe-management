@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { 
   Gamepad2, 
   Search,
@@ -32,11 +32,19 @@ interface GameTabsProps {
 export function GameTabs({ onAddItem, products, productQuantityById, pricingConfig = {} }: GameTabsProps) {
   const [snacksSearch, setSnacksSearch] = useState('');
   const [customDurations, setCustomDurations] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState<string>('');
   const effectivePricing = normalizePricingConfig(pricingConfig);
 
   const gameTypes = useMemo(() => {
     return Object.keys(effectivePricing).filter(k => Object.keys(effectivePricing[k]).length > 0);
   }, [effectivePricing]);
+
+  // Auto-select the first game type (e.g. "pc") once pricing loads
+  useEffect(() => {
+    if (gameTypes.length > 0 && (!activeTab || !gameTypes.includes(activeTab) && activeTab !== 'snacks')) {
+      setActiveTab(gameTypes[0]);
+    }
+  }, [gameTypes]);
 
   const getPoints = (minutes: number) => Math.floor(minutes / 30) * 5;
 
@@ -65,10 +73,8 @@ export function GameTabs({ onAddItem, products, productQuantityById, pricingConf
       .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
   }, [products, snacksSearch]);
 
-  const defaultTab = gameTypes.length > 0 ? gameTypes[0] : 'snacks';
-
   return (
-    <Tabs defaultValue={defaultTab} className="w-full">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
       <TabsList className="bg-muted/20 backdrop-blur-md w-full justify-start overflow-x-auto flex-nowrap gap-2 sm:gap-3 p-1.5 sm:p-2 border border-border/50 rounded-lg shadow-[0_8px_30px_rgb(0,0,0,0.12)] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {gameTypes.map(type => (
           <TabsTrigger key={type} value={type} className="shrink-0 min-w-[108px] sm:min-w-[120px] h-10 sm:h-11 rounded-md px-4 sm:px-5 font-semibold tracking-wide text-xs sm:text-sm whitespace-nowrap transition-all duration-200 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_12px_rgba(var(--primary),0.25)]">

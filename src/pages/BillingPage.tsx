@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { DEFAULT_PRICING_CONFIG, GamePricingConfig, normalizePricingConfig } from '@/lib/pricing';
 import { DEFAULT_LOYALTY_SETTINGS } from '@/lib/loyalty';
 import { LoyaltySettings } from '@/types';
-import { generateCustomerShortId, generateBillShortId } from '@/lib/utils';
+import { getRouteByLabel } from '@/lib/navigation';
 
 
 
@@ -73,7 +73,7 @@ export default function BillingPage({
 
             if (price > 0 || type) {
               const newItem: BillItem = {
-                id: Math.random().toString(36).substr(2, 9),
+                id: crypto.randomUUID(),
                 bill_id: 'current',
                 item_name: `${type.toUpperCase()} - ${prefill.station_name} (${mins}m)`,
                 item_type: 'session',
@@ -100,7 +100,7 @@ export default function BillingPage({
   }, [customers, pricingConfig]);
 
   const addItem = (item: Omit<BillItem, 'id' | 'bill_id'>) => {
-    const newItem: BillItem = { ...item, id: Math.random().toString(36).substr(2, 9), bill_id: 'current' };
+    const newItem: BillItem = { ...item, id: crypto.randomUUID(), bill_id: 'current' };
     if (item.item_type === 'product') {
       setBillItems((prev) => {
         const existing = prev.find((i) => i.item_type === 'product' && i.item_name === item.item_name);
@@ -141,61 +141,36 @@ export default function BillingPage({
     return acc;
   }, {});
 
-  const createCustomer = (payload: { name?: string; phone: string; whatsapp_number?: string }) => {
+  const createCustomer = async (payload: { name?: string; phone: string; whatsapp_number?: string }) => {
+    const { data: existing } = await supabase.from('customers').select('*').eq('phone', payload.phone).maybeSingle();
+    if (existing) {
+      setCustomers((prev) => prev.map(c => c.id === existing.id ? (existing as Customer) : c));
+      setSelectedCustomer(existing as Customer);
+      toast.success(`Welcome back, ${existing.name || existing.phone}!`);
+      return;
+    }
+
     const created = {
-      id: generateCustomerShortId(),
       name: payload.name || payload.phone,
       phone: payload.phone,
       whatsapp_number: payload.whatsapp_number || payload.phone,
       loyalty_points: 0,
       visits: 0,
-      created_at: new Date().toISOString(),
     };
-    const saveToDb = async () => {
-      const { data: existing } = await supabase.from('customers').select('*').eq('phone', payload.phone).maybeSingle();
-      if (existing) {
-        setCustomers((prev) => prev.map(c => c.id === existing.id ? (existing as Customer) : c));
-        setSelectedCustomer(existing as Customer);
-        toast.success(`Welcome back, ${existing.name || existing.phone}!`);
-        return;
-      }
-      const { data: newCustomer, error } = await supabase.from('customers').insert({ ...created, ...(tenantId ? { tenant_id: tenantId } : {}) }).select().single();
-      if (error || !newCustomer) { toast.error(`Failed to save new customer: ${error?.message || 'Unknown error'}`); return; }
-      setCustomers((prev) => [newCustomer as Customer, ...prev]);
-      setSelectedCustomer(newCustomer as Customer);
-      toast.success(`Customer created · ${newCustomer.id}`);
-    };
-    saveToDb();
+
+    const { data: newCustomer, error } = await supabase.from('customers').insert({ ...created, ...(tenantId ? { tenant_id: tenantId } : {}) }).select().single();
+    if (error || !newCustomer) {
+      toast.error(`Failed to save new customer: ${error?.message || 'Unknown error'}`);
+      return;
+    }
+    setCustomers((prev) => [newCustomer as Customer, ...prev]);
+    setSelectedCustomer(newCustomer as Customer);
+    toast.success(`Customer created · ${newCustomer.id}`);
   };
 
-  const saveBillRecord = async (opts: {
-    paymentMethod: string; subtotal: number; discount: number; grandTotal: number;
-    pointsEarned: number; pointsRedeemed: number;
-    customerId?: string; customerName?: string; customerPhone?: string;
-    items: BillItem[];
-  }) => {
-    const { data: newBill, error } = await supabase.from('bills').insert({
-      id: generateBillShortId(),
-      customer_id: opts.customerId || null,
-      customer_name: opts.customerName || 'Cash Customer',
-      customer_phone: opts.customerPhone || null,
-      payment_method: opts.paymentMethod,
-      subtotal: Math.round(opts.subtotal),
-      discount: Math.round(opts.discount),
-      grand_total: Math.round(opts.grandTotal),
-      points_earned: opts.pointsEarned,
-      points_redeemed: opts.pointsRedeemed,
-      items: opts.items,
-      ...(tenantId ? { tenant_id: tenantId } : {}),
-      created_at: new Date().toISOString(),
-    }).select().single();
-    
-    if (error) {
-      console.error('Bill record save failed:', error.message);
-      throw error;
-    }
-    return newBill;
-  };
+  /** Generate a short ID locally (matches the DB pattern BILL-XXXXXX) */
+  const generateLocalId = (prefix: string) =>
+    `${prefix}-${crypto.randomUUID().replace(/-/g, '').substring(0, 6).toUpperCase()}`;
 
   const handleFinalize = async ({
     paymentMethod, subtotal, discount, grandTotal, pointsEarned, pointsRedeemed, isUnlinked,
@@ -210,57 +185,72 @@ export default function BillingPage({
       return;
     }
 
+    const customerIdVal = (isUnlinked ? null : selectedCustomer?.id) || null;
+    const customerNameVal = (isUnlinked ? 'Cash Customer' : (selectedCustomer?.name || selectedCustomer?.phone)) || 'Cash Customer';
+    const customerPhoneVal = (isUnlinked ? null : selectedCustomer?.phone) || null;
+    const ptsEarned = isUnlinked ? 0 : (pointsEarned || 0);
+    const ptsRedeemed = isUnlinked ? 0 : (pointsRedeemed || 0);
+
+    if (!tenantId) {
+      toast.error('Session not ready — please refresh the page and try again.');
+      return;
+    }
+
     try {
-      // 2. Save the bill first to ensure we have a record before modifying other state
-      await saveBillRecord({
-        paymentMethod, subtotal, discount, grandTotal,
-        pointsEarned: isUnlinked ? 0 : pointsEarned,
-        pointsRedeemed: isUnlinked ? 0 : pointsRedeemed,
-        customerId: selectedCustomer?.id,
-        customerName: selectedCustomer?.name,
-        customerPhone: selectedCustomer?.phone,
-        items: billItems,
+      // ── Step 1: Create the bill record ──
+      const billId = generateLocalId('BILL');
+      const { error: billError } = await supabase.from('bills').insert({
+        id: billId,
+        tenant_id: tenantId,
+        customer_id: customerIdVal,
+        customer_name: customerNameVal,
+        customer_phone: customerPhoneVal,
+        payment_method: paymentMethod,
+        subtotal: Math.round(subtotal) || 0,
+        discount: Math.round(discount) || 0,
+        grand_total: Math.round(grandTotal) || 0,
+        points_earned: ptsEarned,
+        points_redeemed: ptsRedeemed,
+        items: billItems || [],
       });
 
-      // 3. Atomically update stock via RPC
-      const productCounts: Record<string, number> = {};
-      billItems.forEach(item => {
+      if (billError) throw new Error(billError.message);
+
+      // ── Step 2: Decrement stock for product items ──
+      for (const item of billItems) {
         if (item.item_type === 'product' && item.metadata?.product_id) {
-          productCounts[item.metadata.product_id] = (productCounts[item.metadata.product_id] || 0) + item.quantity;
-        }
-      });
-
-      for (const [productId, usedQty] of Object.entries(productCounts)) {
-        const { error: ue } = await supabase.rpc('decrement_stock', {
-          product_id: productId,
-          amount: usedQty
-        });
-        if (ue) {
-          toast.error(`Stock update failed for some items: ${ue.message}`);
-          console.error(ue);
+          const product = products.find(p => p.id === item.metadata?.product_id);
+          if (product) {
+            const newQty = Math.max(0, product.stock_quantity - item.quantity);
+            await supabase.from('products')
+              .update({ stock_quantity: newQty })
+              .eq('id', item.metadata.product_id);
+          }
         }
       }
 
-      // Refresh product state
+      // ── Step 3: Update customer loyalty points & visits ──
+      if (customerIdVal && selectedCustomer) {
+        const newPoints = Math.max(0, (selectedCustomer.loyalty_points || 0) + ptsEarned - ptsRedeemed);
+        const newVisits = (selectedCustomer.visits || 0) + 1;
+        await supabase.from('customers')
+          .update({ loyalty_points: newPoints, visits: newVisits })
+          .eq('id', customerIdVal);
+      }
+
+      // ── Step 4: Refresh local state ──
       const { data: freshProducts } = await supabase.from('products').select('*').order('name');
       if (freshProducts) setProducts(freshProducts);
 
-      // 4. Update customer points if linked
-      if (selectedCustomer) {
-        const updatedPoints = Math.max(0, selectedCustomer.loyalty_points - pointsRedeemed + pointsEarned);
-        const updatedVisits = (selectedCustomer.visits || 0) + 1;
-
-        const { error: customerError } = await supabase
+      if (selectedCustomer && !isUnlinked) {
+        const { data: updatedCustomerData } = await supabase
           .from('customers')
-          .update({ loyalty_points: updatedPoints, visits: updatedVisits })
-          .eq('id', selectedCustomer.id);
+          .select('*')
+          .eq('id', selectedCustomer.id)
+          .single();
 
-        if (customerError) {
-          toast.error('Bill saved but failed to update customer stats');
-        } else {
-          const updatedCustomer = { ...selectedCustomer, loyalty_points: updatedPoints, visits: updatedVisits };
-          setCustomers((prev) => prev.map((c) => (c.id === selectedCustomer.id ? updatedCustomer : c)));
-          setSelectedCustomer(updatedCustomer);
+        if (updatedCustomerData) {
+          setCustomers((prev) => prev.map((c) => (c.id === selectedCustomer.id ? updatedCustomerData : c)));
         }
       }
 
@@ -281,16 +271,8 @@ export default function BillingPage({
       <Sidebar
         active="Billing"
         onNavigate={(label) => {
-          const map: Record<string, any> = {
-            'Dashboard': 'dashboard',
-            'Billing': 'billing',
-            'Bookings': 'bookings',
-            'Customers': 'customers',
-            'Inventory': 'inventory',
-            'Reports': 'reports',
-            'Settings': 'settings'
-          };
-          if (map[label]) onNavigate?.(map[label]);
+          const route = getRouteByLabel(label);
+          if (route) onNavigate?.(route);
         }}
         onLogout={onLogout}
       />

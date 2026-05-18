@@ -4,7 +4,8 @@ import { Calendar, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
-import { cn, generateCustomerShortId } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { getRouteByLabel } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import {
   BookingOrBlock,
@@ -533,16 +534,8 @@ export default function BookingsPage({
       <Sidebar
         active="Bookings"
         onNavigate={(label) => {
-          const map: Record<string, any> = {
-            'Dashboard': 'dashboard',
-            'Billing': 'billing',
-            'Bookings': 'bookings',
-            'Customers': 'customers',
-            'Inventory': 'inventory',
-            'Reports': 'reports',
-            'Settings': 'settings'
-          };
-          if (map[label]) onNavigate?.(map[label]);
+          const route = getRouteByLabel(label);
+          if (route) onNavigate?.(route);
         }}
         onLogout={onLogout}
       />
@@ -864,12 +857,10 @@ export default function BookingsPage({
                         onChange={(c) => setDraft((d) => ({ ...d, customer: c }))}
                         onCreate={async (payload) => {
                           const createdPayload = {
-                            id: generateCustomerShortId(),
                             name: payload.name || payload.phone,
                             phone: payload.phone,
                             whatsapp_number: payload.whatsapp_number || payload.phone,
                             loyalty_points: 0,
-                            created_at: new Date().toISOString(),
                             ...(tenantId ? { tenant_id: tenantId } : {})
                           };
                           const { data, error } = await supabase

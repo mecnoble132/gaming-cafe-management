@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS, Station, StationType } from '@/lib/bookings';
 import { DEFAULT_LOYALTY_SETTINGS } from '@/lib/loyalty';
 import { LoyaltySettings } from '@/types';
 import { toast } from 'sonner';
+import { getRouteByLabel } from '@/lib/navigation';
 import { 
   Dialog, 
   DialogContent, 
@@ -135,10 +136,7 @@ export default function SettingsPage({
             type: s.type,
             ...(tenantId ? { tenant_id: tenantId } : {})
           };
-          if (s.isNew) {
-            // Generate a short ID for new stations to avoid bulk upsert null issues
-            payload.id = `STN-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-          } else {
+          if (!s.isNew) {
             payload.id = s.id.trim();
           }
           return payload;
@@ -276,16 +274,8 @@ export default function SettingsPage({
       <Sidebar
         active="Settings"
         onNavigate={(next) => {
-          const map: Record<string, any> = {
-            'Dashboard': 'dashboard',
-            'Billing': 'billing',
-            'Bookings': 'bookings',
-            'Customers': 'customers',
-            'Inventory': 'inventory',
-            'Reports': 'reports',
-            'Settings': 'settings'
-          };
-          if (map[next]) onNavigate?.(map[next]);
+          const route = getRouteByLabel(next);
+          if (route) onNavigate?.(route);
         }}
         onLogout={onLogout}
       />

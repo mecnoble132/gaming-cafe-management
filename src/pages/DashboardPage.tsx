@@ -25,6 +25,7 @@ import {
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { getRouteByLabel } from '@/lib/navigation';
 
 type DashboardData = {
   revenueToday: number;
@@ -124,16 +125,8 @@ export default function DashboardPage({
       <Sidebar
         active="Dashboard"
         onNavigate={(next) => {
-          const map: Record<string, any> = {
-            'Dashboard': 'dashboard',
-            'Billing': 'billing',
-            'Bookings': 'bookings',
-            'Customers': 'customers',
-            'Inventory': 'inventory',
-            'Reports': 'reports',
-            'Settings': 'settings'
-          };
-          if (map[next]) onNavigate?.(map[next]);
+          const route = getRouteByLabel(next);
+          if (route) onNavigate?.(route);
         }}
         onLogout={onLogout}
       />

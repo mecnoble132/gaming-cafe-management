@@ -43,10 +43,6 @@ function expandStations(entries: StationTypeEntry[]): Station[] {
   return stations;
 }
 
-function generateStationId() {
-  return `STN-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-}
-
 export default function OnboardingPage({ onComplete }: { onComplete: () => void }) {
   const { tenant, refresh } = useTenant();
   const [step, setStep] = useState(0);
@@ -156,7 +152,6 @@ export default function OnboardingPage({ onComplete }: { onComplete: () => void 
     setSaving(true);
     try {
       const stationPayload = plannedStations.map((station) => ({
-        id: generateStationId(),
         name: station.name.trim() || station.type.toUpperCase(),
         type: station.type,
         tenant_id: tenantId,
