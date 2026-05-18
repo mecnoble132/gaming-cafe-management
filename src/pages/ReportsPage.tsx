@@ -8,6 +8,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useTenant } from '@/hooks/useTenant';
 import { Button } from '@/components/ui/button';
+import { SkeletonReportsPage } from '@/components/ui/Skeleton';
 import { toast } from 'sonner';
 import { getRouteByLabel } from '@/lib/navigation';
 
@@ -180,6 +181,10 @@ export default function ReportsPage({
     const route = getRouteByLabel(label);
     if (route) onNavigate?.(route);
   };
+
+  if (loading) {
+    return <SkeletonReportsPage />;
+  }
 
   return (
     <div className="flex min-h-screen bg-background">

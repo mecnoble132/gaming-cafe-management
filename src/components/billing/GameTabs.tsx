@@ -27,9 +27,10 @@ interface GameTabsProps {
   products: Product[];
   productQuantityById: Record<string, number>;
   pricingConfig?: GamePricingConfig;
+  isLoyaltyEnabled?: boolean;
 }
 
-export function GameTabs({ onAddItem, products, productQuantityById, pricingConfig = {} }: GameTabsProps) {
+export function GameTabs({ onAddItem, products, productQuantityById, pricingConfig = {}, isLoyaltyEnabled = true }: GameTabsProps) {
   const [snacksSearch, setSnacksSearch] = useState('');
   const [customDurations, setCustomDurations] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<string>('');
@@ -130,9 +131,9 @@ export function GameTabs({ onAddItem, products, productQuantityById, pricingConf
                       </span>
                       <span className="text-xs font-semibold text-muted-foreground tracking-wide">Estimated Total</span>
                     </div>
-                    {customDurations[type] && (
+                    {isLoyaltyEnabled && customDurations[type] && (
                       <p className="text-xs font-semibold text-primary tracking-wide flex items-center gap-1">
-                        <CheckCircle2 size={12} /> +{getPoints(Number(customDurations[type]))} GG pts
+                        <CheckCircle2 size={12} /> +{getPoints(Number(customDurations[type]))} pts
                       </p>
                     )}
                   </div>

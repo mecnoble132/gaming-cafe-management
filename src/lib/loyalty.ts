@@ -6,4 +6,5 @@ export const DEFAULT_LOYALTY_SETTINGS: LoyaltySettings = {
   earn_rate_minutes: 30,
   redeem_rate_points: 70,
   redeem_rate_minutes: 60,
+  enabled: true,
 };

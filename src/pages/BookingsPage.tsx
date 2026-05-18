@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, addMinutes, format, isSameDay, parseISO } from 'date-fns';
 import { Calendar, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { useTenant } from '@/hooks/useTenant';
+import { SkeletonBookingsPage } from '@/components/ui/Skeleton';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -72,12 +74,14 @@ function CustomerPicker({
   onChange,
   onCreate,
   disabled,
+  isLoyaltyEnabled = true,
 }: {
   customers: Customer[];
   value: Customer | null;
   onChange: (c: Customer) => void;
   onCreate: (payload: { name?: string; phone: string; whatsapp_number?: string }) => void;
   disabled?: boolean;
+  isLoyaltyEnabled?: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -198,9 +202,11 @@ function CustomerPicker({
                     <div className="truncate text-sm font-semibold">{c.name || c.phone}</div>
                     <div className="text-xs text-muted-foreground font-mono">{c.phone}</div>
                   </div>
-                  <Badge variant="outline" className="font-mono">
-                    {c.loyalty_points} GG pts
-                  </Badge>
+                  {isLoyaltyEnabled && (
+                    <Badge variant="outline" className="font-mono">
+                      {c.loyalty_points} pts
+                    </Badge>
+                  )}
                 </button>
               ))
             ) : q.trim() ? (
@@ -228,6 +234,7 @@ export default function BookingsPage({
   onNavigate?: (next: 'dashboard' | 'billing' | 'bookings' | 'settings' | 'inventory' | 'customers' | 'reports') => void;
   onLogout?: () => void;
 }) {
+  const { isLoyaltyEnabled } = useTenant();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -532,6 +539,10 @@ export default function BookingsPage({
   }, [selectedDate]);
 
   const rowH = 32;
+
+  if (loadingData) {
+    return <SkeletonBookingsPage />;
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -859,6 +870,7 @@ export default function BookingsPage({
                         customers={customers}
                         value={draft.customer}
                         onChange={(c) => setDraft((d) => ({ ...d, customer: c }))}
+                        isLoyaltyEnabled={isLoyaltyEnabled}
                         onCreate={async (payload) => {
                           const createdPayload = {
                             id: `CUS-${crypto.randomUUID().replace(/-/g, '').substring(0, 6).toUpperCase()}`,

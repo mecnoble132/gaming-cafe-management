@@ -39,6 +39,14 @@ function AppContent() {
   const nav = (next: PageName) => setPage(next);
 
   useEffect(() => {
+    const handleOpenAccount = () => {
+      setPage('settings');
+    };
+    window.addEventListener('open-account-settings', handleOpenAccount);
+    return () => window.removeEventListener('open-account-settings', handleOpenAccount);
+  }, []);
+
+  useEffect(() => {
     const pageTitles: Record<PageName, string> = {
       dashboard: 'Command Center · CoreControl',
       billing: 'Billing · CoreControl',

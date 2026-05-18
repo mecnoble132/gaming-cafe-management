@@ -28,8 +28,8 @@ describe('SettingsPage Component', () => {
       expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/Stations/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Stations/i)[0]).toBeInTheDocument();
     expect(screen.getByText(/Pricing & Game Types/i)).toBeInTheDocument();
-    expect(screen.getByText(/GG Points System/i)).toBeInTheDocument();
+    expect(screen.getByText(/Loyalty Points/i)).toBeInTheDocument();
   });
 });

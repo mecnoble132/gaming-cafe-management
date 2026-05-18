@@ -39,6 +39,7 @@ interface BillSummaryProps {
     pointsRedeemed: number;
     isUnlinked: boolean;
   }) => void;
+  isLoyaltyEnabled?: boolean;
 }
 
 export function BillSummary({ 
@@ -47,7 +48,8 @@ export function BillSummary({
   loyaltySettings,
   onRemoveItem, 
   onUpdateQuantity,
-  onFinalize 
+  onFinalize,
+  isLoyaltyEnabled = true,
 }: BillSummaryProps) {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi' | 'card'>('cash');
   const [redeemPoints, setRedeemPoints] = useState(false);
@@ -158,21 +160,21 @@ export function BillSummary({
       </div>
 
       <div className="mt-auto border-t bg-muted/20 p-4 space-y-4">
-        {/* GG Points Section */}
-        {customer && (
+        {/* Loyalty Points Section */}
+        {isLoyaltyEnabled && customer && (
           <div className="space-y-3">
             <div className="rounded-lg border border-border/50 bg-background/40 p-3">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">GG Points earned (this bill)</span>
-                <span className="font-mono font-bold text-secondary">+{Math.round(earnablePoints)} GG pts</span>
+                <span className="text-muted-foreground">Points earned (this bill)</span>
+                <span className="font-mono font-bold text-secondary">+{Math.round(earnablePoints)} pts</span>
               </div>
               <div className="mt-1 flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">GG Points available</span>
-                <span className="font-mono font-bold">{customer.loyalty_points} GG pts</span>
+                <span className="text-muted-foreground">Points available</span>
+                <span className="font-mono font-bold">{customer.loyalty_points} pts</span>
               </div>
               <div className="mt-1 flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">GG Points redeemable (free hours)</span>
-                <span className="font-mono font-bold">{maxRedeemablePoints} GG pts</span>
+                <span className="text-muted-foreground">Points redeemable (free hours)</span>
+                <span className="font-mono font-bold">{maxRedeemablePoints} pts</span>
               </div>
             </div>
             <div
@@ -183,7 +185,7 @@ export function BillSummary({
               )}
             >
               <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Use GG points for free hours</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Use points for free hours</p>
                 <p className="text-xs font-mono font-bold">
                   Redeemable: {Math.floor(maxHoursByPoints)} hour(s)
                 </p>
@@ -230,7 +232,7 @@ export function BillSummary({
                     </Select>
                   </>
                 ) : (
-                  <p className="text-xs text-muted-foreground">GG points can be redeemed on any session type.</p>
+                  <p className="text-xs text-muted-foreground">Loyalty points can be redeemed on any session type.</p>
                 )}
               </div>
             )}
@@ -243,9 +245,9 @@ export function BillSummary({
             <span>Subtotal</span>
             <span className="font-mono">₹{subtotal}</span>
           </div>
-          {redeemPoints && (
+          {isLoyaltyEnabled && redeemPoints && (
             <div className="flex justify-between text-xs text-secondary">
-              <span>GG Discount</span>
+              <span>Discount</span>
               <span className="font-mono">-₹{Math.round(discount)}</span>
             </div>
           )}

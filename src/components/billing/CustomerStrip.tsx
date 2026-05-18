@@ -13,6 +13,7 @@ interface CustomerStripProps {
   onSelectCustomer: (customer: Customer) => void;
   onClearCustomer: () => void;
   onCreateCustomer: (payload: { name?: string; phone: string; whatsapp_number?: string }) => void;
+  isLoyaltyEnabled?: boolean;
 }
 
 export function CustomerStrip({ 
@@ -21,6 +22,7 @@ export function CustomerStrip({
   onSelectCustomer, 
   onClearCustomer,
   onCreateCustomer,
+  isLoyaltyEnabled = true,
 }: CustomerStripProps) {
   const [search, setSearch] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -93,10 +95,12 @@ export function CustomerStrip({
                 <h3 className="text-sm font-bold leading-none tracking-tight">{selectedCustomer.name || 'Anonymous Customer'}</h3>
                 <p className="font-mono text-[11px] text-muted-foreground mt-1">{selectedCustomer.phone}</p>
               </div>
-              <div className="ml-2 flex items-center gap-1.5 rounded-full border border-secondary/30 bg-secondary/10 px-2.5 py-1 shadow-[0_0_10px_rgba(var(--secondary),0.08)]">
-                <Star size={14} className="fill-secondary text-secondary" />
-                <span className="font-mono text-xs font-bold text-secondary">{selectedCustomer.loyalty_points} GG pts</span>
-              </div>
+              {isLoyaltyEnabled && (
+                <div className="ml-2 flex items-center gap-1.5 rounded-full border border-secondary/30 bg-secondary/10 px-2.5 py-1 shadow-[0_0_10px_rgba(var(--secondary),0.08)]">
+                  <Star size={14} className="fill-secondary text-secondary" />
+                  <span className="font-mono text-xs font-bold text-secondary">{selectedCustomer.loyalty_points} pts</span>
+                </div>
+              )}
             </div>
             <Button
               variant="ghost" 
@@ -167,7 +171,7 @@ export function CustomerStrip({
                                 <p className="font-mono text-xs text-muted-foreground">{m.phone}</p>
                               </div>
                             </div>
-                            <Badge variant="outline" className="font-mono">{m.loyalty_points} GG pts</Badge>
+                            {isLoyaltyEnabled && <Badge variant="outline" className="font-mono">{m.loyalty_points} pts</Badge>}
                           </button>
                         ))
                       ) : showCreateForm ? (

@@ -13,6 +13,8 @@ interface TenantContextType {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  isLoyaltyEnabled: boolean;
+  setIsLoyaltyEnabled: (enabled: boolean) => void;
 }
 
 const TenantContext = createContext<TenantContextType>({
@@ -20,6 +22,8 @@ const TenantContext = createContext<TenantContextType>({
   loading: true,
   error: null,
   refresh: async () => {},
+  isLoyaltyEnabled: true,
+  setIsLoyaltyEnabled: () => {},
 });
 
 export const useTenant = () => useContext(TenantContext);
@@ -45,6 +49,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode; session: Sess
   const [tenant, setTenant] = useState<TenantContextType['tenant']>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLoyaltyEnabled, setIsLoyaltyEnabled] = useState(true);
 
   const fetchTenant = useCallback(async () => {
     if (!session?.user) {
@@ -88,6 +93,21 @@ export const TenantProvider: React.FC<{ children: React.ReactNode; session: Sess
           slug: tenantRow.slug,
           onboarding_completed,
         });
+
+        // Safe query for loyalty settings
+        try {
+          const { data: loyaltyData } = await supabase
+            .from('loyalty_settings')
+            .select('enabled')
+            .maybeSingle();
+          if (loyaltyData && typeof loyaltyData.enabled === 'boolean') {
+            setIsLoyaltyEnabled(loyaltyData.enabled);
+          } else {
+            setIsLoyaltyEnabled(true);
+          }
+        } catch {
+          setIsLoyaltyEnabled(true);
+        }
       } else {
         setTenant(null);
       }
@@ -104,7 +124,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode; session: Sess
   }, [fetchTenant]);
 
   return (
-    <TenantContext.Provider value={{ tenant, loading, error, refresh: fetchTenant }}>
+    <TenantContext.Provider value={{ tenant, loading, error, refresh: fetchTenant, isLoyaltyEnabled, setIsLoyaltyEnabled }}>
       {children}
     </TenantContext.Provider>
   );

@@ -23,20 +23,23 @@ const loyaltySettings = {
 const sampleItems: BillItem[] = [
   {
     id: 'item-1',
+    bill_id: 'bill-1',
     item_name: 'Console Gaming',
     item_type: 'session',
     quantity: 1,
     unit_price: 150,
     total_price: 150,
-    metadata: { duration_minutes: 60 },
+    metadata: { duration_minutes: 60, game_type: 'pc' },
   },
   {
     id: 'item-2',
+    bill_id: 'bill-1',
     item_name: 'Soft Drink',
     item_type: 'product',
     quantity: 2,
     unit_price: 40,
     total_price: 80,
+    metadata: { product_id: 'prod-1', category: 'drinks' },
   },
 ];
 

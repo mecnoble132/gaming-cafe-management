@@ -131,6 +131,7 @@ create table if not exists public.loyalty_settings (
   earn_rate_minutes integer not null default 30,
   redeem_rate_points integer not null default 70,
   redeem_rate_minutes integer not null default 60,
+  enabled boolean not null default true,
   created_at timestamptz not null default now()
 );
 

@@ -3,6 +3,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SkeletonSettingsPage } from '@/components/ui/Skeleton';
 import { supabase } from '@/lib/supabase';
 import { DEFAULT_PRICING_CONFIG, GamePricingConfig, normalizePricingConfig } from '@/lib/pricing';
 import { DEFAULT_SETTINGS, Station, StationType } from '@/lib/bookings';
@@ -18,7 +19,9 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog';
-import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Plus, Trash2, User, Lock, Loader2, Settings2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useTenant } from '@/hooks/useTenant';
 
 type EditableStation = Station & { isNew?: boolean };
 
@@ -53,9 +56,26 @@ export default function SettingsPage({
     description: string;
   } | null>(null);
 
+  // Account tab specific states
+  const [activeTab, setActiveTab] = useState<'account' | 'stations' | 'pricing' | 'loyalty'>('account');
+  const [user, setUser] = useState<{ email?: string; name: string } | null>(null);
+  const [name, setName] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [updatingAccount, setUpdatingAccount] = useState(false);
+  const [cafeName, setCafeName] = useState('');
+
+  const { tenant, refresh: refreshTenant, setIsLoyaltyEnabled } = useTenant();
+
   useEffect(() => {
     document.title = 'Settings · CoreControl';
   }, []);
+
+  useEffect(() => {
+    if (tenant?.name) {
+      setCafeName(tenant.name);
+    }
+  }, [tenant]);
 
   useEffect(() => {
     const load = async () => {
@@ -92,10 +112,72 @@ export default function SettingsPage({
         setLoyaltySettingsId(loyaltyRow.id);
         setLoyaltySettings(loyaltyRow as LoyaltySettings);
       }
+
+      // Load auth profile details
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const currentName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
+        setUser({
+          email: authUser.email,
+          name: currentName,
+        });
+        setName(currentName);
+      }
+
       setLoading(false);
     };
     load();
   }, []);
+
+  const handleUpdateAccount = async () => {
+    if (newPassword && newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    if (newPassword && newPassword !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    setUpdatingAccount(true);
+    try {
+      // 1. Update auth metadata name
+      const { error: authNameError } = await supabase.auth.updateUser({
+        data: { full_name: name }
+      });
+      if (authNameError) throw authNameError;
+
+      // 2. Update password if provided
+      if (newPassword) {
+        const { error: passError } = await supabase.auth.updateUser({
+          password: newPassword
+        });
+        if (passError) throw passError;
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+
+      // 3. Update Cafe Brand Name
+      if (cafeName.trim() && cafeName.trim() !== tenant?.name && tenant?.id) {
+        const { error: tenantError } = await supabase
+          .from('tenants')
+          .update({ name: cafeName.trim() })
+          .eq('id', tenant.id);
+        if (tenantError) throw tenantError;
+        await refreshTenant();
+      }
+
+      setUser((prev) => prev ? { ...prev, name } : null);
+      toast.success('Profile and Cafe settings updated successfully!');
+      
+      // Dispatch sync event
+      window.dispatchEvent(new CustomEvent('account-profile-updated', { detail: { name } }));
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update details');
+    } finally {
+      setUpdatingAccount(false);
+    }
+  };
 
   const addStation = () => {
     setStations((prev) => [...prev, { id: `temp-${Date.now()}`, name: '', type: stationTypeOptions[0] || '', isNew: true }]);
@@ -177,6 +259,10 @@ export default function SettingsPage({
           ...(tenantId ? { tenant_id: tenantId } : {}) 
         });
       if (loyaltyError) throw loyaltyError;
+
+      if (typeof loyaltySettings.enabled === 'boolean') {
+        setIsLoyaltyEnabled(loyaltySettings.enabled);
+      }
 
       // Refresh stations to get proper IDs
       const { data: freshStations } = await supabase.from('stations').select('id,name,type').order('name');
@@ -285,237 +371,492 @@ export default function SettingsPage({
         <PageHeader 
           title="Settings" 
           actions={
-            <Button onClick={saveAll} disabled={saving || loading}>
-              {saving ? 'Saving...' : 'Save all changes'}
-            </Button>
+            activeTab !== 'account' && (
+              <Button onClick={saveAll} disabled={saving || loading} className="rounded-xl shadow-md shadow-primary/10 font-bold px-5">
+                {saving ? 'Saving...' : 'Save all changes'}
+              </Button>
+            )
           }
         />
 
-        <div className="mx-auto w-full max-w-[1600px] space-y-4 p-3 sm:p-4">
-          {loading ? <div className="rounded-md border border-border/50 bg-background/40 p-4 text-sm text-muted-foreground">Loading settings...</div> : null}
-
-          <section className="rounded-md border border-border/50 bg-background/40 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Stations ({totalStations})</h3>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={addStation}>
-                  Add station
-                </Button>
-              </div>
+        <div className="mx-auto w-full max-w-[1600px] space-y-5 p-3 sm:p-5">
+          {loading ? (
+            <div className="rounded-xl border border-border/50 bg-background/40 p-4 text-sm text-muted-foreground animate-pulse">
+              Loading settings...
             </div>
-            <div className="space-y-2">
-              {stations.map((station) => (
-                <div key={station.id} className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_140px_90px]">
-                  <Input
-                    placeholder="Station ID (example: ps5-4)"
-                    value={station.id}
-                    onChange={(e) => setStations((prev) => prev.map((x) => (x.id === station.id ? { ...x, id: e.target.value } : x)))}
-                    disabled={!station.isNew}
-                  />
-                  <Input
-                    placeholder="Station name"
-                    value={station.name}
-                    onChange={(e) => setStations((prev) => prev.map((x) => (x.id === station.id ? { ...x, name: e.target.value } : x)))}
-                  />
-                  <select
-                    className="h-10 rounded-md border border-input bg-background px-2 text-sm"
-                    value={station.type}
-                    onChange={(e) =>
-                      setStations((prev) => prev.map((x) => (x.id === station.id ? { ...x, type: e.target.value as StationType } : x)))
-                    }
-                  >
-                    {stationTypeOptions.map((t) => (
-                      <option key={t} value={t}>
-                        {t.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
-                  <Button size="sm" variant="destructive" onClick={() => removeStation(station.id, station.isNew)}>
-                    Remove
+          ) : null}
+
+          {/* Tab Selector */}
+          <div className="flex border-b border-border/40 overflow-x-auto no-scrollbar gap-2 pb-1.5">
+            <button
+              onClick={() => setActiveTab('account')}
+              className={cn(
+                "px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all border-b-2 shrink-0 rounded-t-lg",
+                activeTab === 'account'
+                  ? "border-primary text-primary bg-primary/5"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Account & Cafe
+            </button>
+            <button
+              onClick={() => setActiveTab('stations')}
+              className={cn(
+                "px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all border-b-2 shrink-0 rounded-t-lg",
+                activeTab === 'stations'
+                  ? "border-primary text-primary bg-primary/5"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Stations
+            </button>
+            <button
+              onClick={() => setActiveTab('pricing')}
+              className={cn(
+                "px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all border-b-2 shrink-0 rounded-t-lg",
+                activeTab === 'pricing'
+                  ? "border-primary text-primary bg-primary/5"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Pricing & Game Types
+            </button>
+            <button
+              onClick={() => setActiveTab('loyalty')}
+              className={cn(
+                "px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all border-b-2 shrink-0 rounded-t-lg",
+                activeTab === 'loyalty'
+                  ? "border-primary text-primary bg-primary/5"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Loyalty Points
+            </button>
+          </div>
+
+          {/* Tab Content: Account & Cafe */}
+          {activeTab === 'account' && !loading && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              {/* Personal Details */}
+              <div className="lg:col-span-2 rounded-xl border border-border/50 bg-card/40 p-5 backdrop-blur-sm space-y-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-primary to-purple-600 flex items-center justify-center text-xl font-black text-white shadow-lg shadow-primary/20 shrink-0">
+                    {user?.name.slice(0, 2).toUpperCase() || 'U'}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">Personal Profile</h3>
+                    <p className="text-xs text-muted-foreground">Manage your personal profile and display settings.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Display Name</label>
+                    <Input
+                      placeholder="Display name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="h-10"
+                    />
+                  </div>
+
+                  {/* Email */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      Email Address
+                      <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground font-mono select-none">LOCKED</span>
+                    </label>
+                    <Input
+                      disabled
+                      value={user?.email || ''}
+                      className="bg-muted/30 font-mono text-xs text-muted-foreground/75 border-border/40 h-10 select-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t border-border/40 my-4" />
+
+                {/* Change Password */}
+                <div>
+                  <h4 className="text-sm font-bold text-foreground mb-3">Security & Password</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">New Password</label>
+                      <Input
+                        type="password"
+                        placeholder="Minimum 6 characters"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="h-10"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Confirm Password</label>
+                      <Input
+                        type="password"
+                        placeholder="Confirm new password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="h-10"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-border/40 my-4" />
+
+                {/* Save personal details button */}
+                <div className="flex justify-end">
+                  <Button onClick={handleUpdateAccount} disabled={updatingAccount} className="font-bold shadow-md shadow-primary/10 rounded-xl px-5">
+                    {updatingAccount ? 'Saving Account...' : 'Save Account Settings'}
                   </Button>
                 </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-md border border-border/50 bg-background/40 p-4">
-            <h3 className="mb-3 text-sm font-semibold">Booking timings</h3>
-            <p className="mb-3 text-xs text-muted-foreground">
-              These timings control when customers can book slots and the slot size used in the bookings calendar.
-            </p>
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                  <label className="flex flex-col gap-2.5">
-                <span className="text-xs font-medium text-muted-foreground">Opening time</span>
-                <Input
-                  type="time"
-                  value={bookingSettings.opening_time}
-                  onChange={(e) => setBookingSettings((s) => ({ ...s, opening_time: e.target.value }))}
-                />
-              </label>
-                  <label className="flex flex-col gap-2.5">
-                <span className="text-xs font-medium text-muted-foreground">Closing time</span>
-                <Input
-                  type="time"
-                  value={bookingSettings.closing_time}
-                  onChange={(e) => setBookingSettings((s) => ({ ...s, closing_time: e.target.value }))}
-                />
-              </label>
-                  <label className="flex flex-col gap-2.5">
-                <span className="text-xs font-medium text-muted-foreground">Slot length (minutes)</span>
-                <Input
-                  type="number"
-                  min={5}
-                  value={bookingSettings.slot_minutes}
-                  onChange={(e) => setBookingSettings((s) => ({ ...s, slot_minutes: Number(e.target.value) || s.slot_minutes }))}
-                />
-              </label>
-            </div>
-          </section>
-
-          <section className="rounded-md border border-border/50 bg-background/40 p-4">
-            <h3 className="mb-3 text-sm font-semibold">Pricing & Game Types</h3>
-            <p className="mb-3 text-xs text-muted-foreground">
-              Add different categories of games (like PS5, Snooker, etc.) and define their pricing by duration.
-            </p>
-
-            <div className="mb-6">
-              <Button onClick={addCustomGameType} variant="outline" size="sm" className="gap-2">
-                <Plus size={16} /> Add New Game Type
-              </Button>
-            </div>
-
-            {/* Dynamic Game Types Pricing */}
-            {Object.keys(pricingConfig).length === 0 ? (
-              <div className="text-center py-12 border border-dashed border-border rounded-lg bg-muted/10">
-                <p className="text-sm text-muted-foreground">No game types added yet. Add your first one to start billing.</p>
               </div>
-            ) : (
-              <div className="space-y-8">
-                {Object.keys(pricingConfig)
-                  .map(key => (
-                    <div key={key} className="border-t border-border/30 pt-6 first:border-0 first:pt-0">
-                      <div className="mb-4 flex items-center justify-between">
-                        <div>
-                          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{key.replace(/_/g, ' ')}</div>
-                          <div className="text-[11px] text-muted-foreground">Manage durations and prices</div>
-                        </div>
-                        <Button size="sm" variant="ghost" className="text-destructive h-7 text-[10px]" onClick={() => removeCustomGameType(key)}>
-                          Remove Game Type
-                        </Button>
-                      </div>
-                      
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-[120px_120px_1fr] gap-4 px-1">
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Duration (Min)</span>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Price (₹)</span>
-                        </div>
 
-                        {Object.entries(pricingConfig[key] || {})
-                          .sort(([a], [b]) => Number(a) - Number(b))
-                          .map(([duration, price]) => (
-                            <div key={`${key}-${duration}`} className="grid grid-cols-[120px_120px_auto] gap-4 items-center">
-                              <Input
-                                type="number"
-                                className="h-9 font-mono"
-                                value={duration}
-                                onChange={(e) => updateDurationMinutes(key, duration, e.target.value)}
-                                placeholder="Mins"
-                              />
-                              <Input
-                                type="number"
-                                className="h-9 font-mono"
-                                value={price}
-                                onChange={(e) =>
-                                  setPricingConfig((p) => ({
-                                    ...p,
-                                    [key]: { ...p[key], [duration]: Number(e.target.value) || 0 },
-                                  }))
-                                }
-                                placeholder="₹"
-                              />
-                              <Button 
-                                size="icon" 
-                                variant="ghost" 
-                                className="h-9 w-9 text-destructive hover:bg-destructive/10"
-                                onClick={() => removeDuration(key, duration)}
-                              >
-                                <Trash2 size={14} />
-                              </Button>
-                            </div>
-                          ))}
-                        
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="mt-2 text-[11px] h-8 gap-2 border border-dashed border-border hover:bg-muted/50"
-                          onClick={() => addDuration(key)}
-                        >
-                          <Plus size={14} /> Add Timing
-                        </Button>
-                      </div>
+              {/* Cafe & Workspaces Details */}
+              <div className="space-y-5">
+                {/* Cafe Profile */}
+                <div className="rounded-xl border border-border/50 bg-card/40 p-5 backdrop-blur-sm space-y-4">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Cafe Profile</h3>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Cafe Name</label>
+                    <Input
+                      placeholder="Cafe name"
+                      value={cafeName}
+                      onChange={(e) => setCafeName(e.target.value)}
+                      className="h-10"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      Cafe Handle (Slug)
+                      <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground font-mono select-none">LOCKED</span>
+                    </label>
+                    <Input
+                      disabled
+                      value={tenant?.slug || ''}
+                      className="bg-muted/30 font-mono text-xs text-muted-foreground/75 border-border/40 h-10 select-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      Tenant ID
+                      <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground font-mono select-none">LOCKED</span>
+                    </label>
+                    <Input
+                      disabled
+                      value={tenant?.id || ''}
+                      className="bg-muted/30 font-mono text-xs text-muted-foreground/75 border-border/40 h-10 select-all"
+                    />
+                  </div>
+
+                  <Button onClick={handleUpdateAccount} disabled={updatingAccount} className="w-full font-bold shadow-md shadow-primary/10 rounded-xl">
+                    {updatingAccount ? 'Saving Cafe...' : 'Update Cafe Profile'}
+                  </Button>
+                </div>
+
+                {/* Plan and Subscription Details */}
+                <div className="rounded-xl border border-border/50 bg-card/40 p-5 backdrop-blur-sm space-y-3">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Plan Details</h3>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground font-semibold">Active Plan</span>
+                    <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(var(--primary),0.1)]">Founder Lifetime Access</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground font-semibold">Max Stations</span>
+                    <span className="text-xs font-mono font-bold text-foreground">Unlimited</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground font-semibold">Database Region</span>
+                    <span className="text-xs font-mono text-muted-foreground">ap-south-1 (Mumbai)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab Content: Stations */}
+          {activeTab === 'stations' && !loading && (
+            <div className="space-y-5">
+              <section className="rounded-xl border border-border/50 bg-card/40 p-5 backdrop-blur-sm">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Stations ({totalStations})</h3>
+                    <p className="text-xs text-muted-foreground">Register and rename consoles, PC setups, or VR tracks.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={addStation} className="rounded-xl font-bold h-9">
+                      Add station
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {stations.map((station) => (
+                    <div key={station.id} className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_160px_100px]">
+                      <Input
+                        placeholder="Station ID (example: ps5-4)"
+                        value={station.id}
+                        onChange={(e) => setStations((prev) => prev.map((x) => (x.id === station.id ? { ...x, id: e.target.value } : x)))}
+                        disabled={!station.isNew}
+                        className="h-10"
+                      />
+                      <Input
+                        placeholder="Station name"
+                        value={station.name}
+                        onChange={(e) => setStations((prev) => prev.map((x) => (x.id === station.id ? { ...x, name: e.target.value } : x)))}
+                        className="h-10"
+                      />
+                      <select
+                        className="h-10 rounded-xl border border-input bg-background px-3 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
+                        value={station.type}
+                        onChange={(e) =>
+                          setStations((prev) => prev.map((x) => (x.id === station.id ? { ...x, type: e.target.value as StationType } : x)))
+                        }
+                      >
+                        {stationTypeOptions.map((t) => (
+                          <option key={t} value={t}>
+                            {t.toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
+                      <Button size="sm" variant="destructive" onClick={() => removeStation(station.id, station.isNew)} className="rounded-xl h-10 font-bold">
+                        Remove
+                      </Button>
                     </div>
                   ))}
-              </div>
-            )}
-          </section>
+                </div>
+              </section>
 
-          <section className="rounded-md border border-border/50 bg-background/40 p-4">
-            <h3 className="mb-3 text-sm font-semibold text-secondary">GG Points System</h3>
-            <p className="mb-3 text-xs text-muted-foreground">
-              Configure how customers earn and redeem GG points. All sessions earn points based on duration.
-            </p>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div className="space-y-4">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Earning Rules</div>
-                <div className="grid grid-cols-2 gap-3">
-                      <label className="flex flex-col gap-2.5">
-                    <span className="text-[11px] font-medium text-muted-foreground">Points to earn</span>
+              <section className="rounded-xl border border-border/50 bg-card/40 p-5 backdrop-blur-sm">
+                <h3 className="mb-1 text-sm font-bold uppercase tracking-wider text-muted-foreground">Booking timings</h3>
+                <p className="mb-4 text-xs text-muted-foreground">
+                  These timings control when customers can book slots and the slot size used in the bookings calendar.
+                </p>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <label className="flex flex-col gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Opening time</span>
                     <Input
-                      type="number"
-                      value={loyaltySettings.earn_rate_points}
-                      onChange={(e) => setLoyaltySettings(s => ({ ...s, earn_rate_points: Number(e.target.value) || 0 }))}
+                      type="time"
+                      value={bookingSettings.opening_time}
+                      onChange={(e) => setBookingSettings((s) => ({ ...s, opening_time: e.target.value }))}
+                      className="h-10"
                     />
                   </label>
-                      <label className="flex flex-col gap-2.5">
-                    <span className="text-[11px] font-medium text-muted-foreground">Per minutes played</span>
+                  <label className="flex flex-col gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Closing time</span>
+                    <Input
+                      type="time"
+                      value={bookingSettings.closing_time}
+                      onChange={(e) => setBookingSettings((s) => ({ ...s, closing_time: e.target.value }))}
+                      className="h-10"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Slot length (minutes)</span>
                     <Input
                       type="number"
-                      value={loyaltySettings.earn_rate_minutes}
-                      onChange={(e) => setLoyaltySettings(s => ({ ...s, earn_rate_minutes: Number(e.target.value) || 0 }))}
+                      min={5}
+                      value={bookingSettings.slot_minutes}
+                      onChange={(e) => setBookingSettings((s) => ({ ...s, slot_minutes: Number(e.target.value) || s.slot_minutes }))}
+                      className="h-10"
                     />
                   </label>
                 </div>
-                <p className="text-[10px] text-muted-foreground italic">
-                  Example: {loyaltySettings.earn_rate_points} points for every {loyaltySettings.earn_rate_minutes} minutes.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Redemption Rules</div>
-                <div className="grid grid-cols-2 gap-3">
-                      <label className="flex flex-col gap-2.5">
-                    <span className="text-[11px] font-medium text-muted-foreground">Points to redeem</span>
-                    <Input
-                      type="number"
-                      value={loyaltySettings.redeem_rate_points}
-                      onChange={(e) => setLoyaltySettings(s => ({ ...s, redeem_rate_points: Number(e.target.value) || 0 }))}
-                    />
-                  </label>
-                      <label className="flex flex-col gap-2.5">
-                    <span className="text-[11px] font-medium text-muted-foreground">For free minutes</span>
-                    <Input
-                      type="number"
-                      value={loyaltySettings.redeem_rate_minutes}
-                      onChange={(e) => setLoyaltySettings(s => ({ ...s, redeem_rate_minutes: Number(e.target.value) || 0 }))}
-                    />
-                  </label>
-                </div>
-                <p className="text-[10px] text-muted-foreground italic">
-                  Example: {loyaltySettings.redeem_rate_points} points gives {loyaltySettings.redeem_rate_minutes} minutes free.
-                </p>
-              </div>
+              </section>
             </div>
-          </section>
+          )}
+
+          {/* Tab Content: Pricing & Game Types */}
+          {activeTab === 'pricing' && !loading && (
+            <section className="rounded-xl border border-border/50 bg-card/40 p-5 backdrop-blur-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 border-b border-border/30 pb-4">
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Pricing & Game Types</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Add categories of games (like PS5, Snooker, PC) and define their hourly or duration pricing grid.
+                  </p>
+                </div>
+                <Button onClick={addCustomGameType} variant="outline" size="sm" className="gap-2 rounded-xl h-10 font-bold shrink-0">
+                  <Plus size={16} /> Add New Game Type
+                </Button>
+              </div>
+
+              {/* Dynamic Game Types Pricing */}
+              {Object.keys(pricingConfig).length === 0 ? (
+                <div className="text-center py-12 border border-dashed border-border rounded-xl bg-muted/10">
+                  <p className="text-sm text-muted-foreground">No game types added yet. Add your first one to start billing.</p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {Object.keys(pricingConfig)
+                    .map(key => (
+                      <div key={key} className="border-t border-border/30 pt-6 first:border-0 first:pt-0">
+                        <div className="mb-4 flex items-center justify-between">
+                          <div>
+                            <div className="text-xs font-bold text-primary uppercase tracking-wider">{key.replace(/_/g, ' ')}</div>
+                            <div className="text-[10px] text-muted-foreground">Manage durations and prices</div>
+                          </div>
+                          <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 h-8 rounded-xl px-3 text-xs font-bold" onClick={() => removeCustomGameType(key)}>
+                            Remove Game Type
+                          </Button>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-[140px_140px_1fr] gap-4 px-1">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Duration (Min)</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Price (₹)</span>
+                          </div>
+
+                          {Object.entries(pricingConfig[key] || {})
+                            .sort(([a], [b]) => Number(a) - Number(b))
+                            .map(([duration, price]) => (
+                              <div key={`${key}-${duration}`} className="grid grid-cols-[140px_140px_auto] gap-4 items-center">
+                                <Input
+                                  type="number"
+                                  className="h-10 font-mono"
+                                  value={duration}
+                                  onChange={(e) => updateDurationMinutes(key, duration, e.target.value)}
+                                  placeholder="Mins"
+                                />
+                                <Input
+                                  type="number"
+                                  className="h-10 font-mono"
+                                  value={price}
+                                  onChange={(e) =>
+                                    setPricingConfig((p) => ({
+                                      ...p,
+                                      [key]: { ...p[key], [duration]: Number(e.target.value) || 0 },
+                                    }))
+                                  }
+                                  placeholder="₹"
+                                />
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost" 
+                                  className="h-10 w-10 text-destructive hover:bg-destructive/10 rounded-xl"
+                                  onClick={() => removeDuration(key, duration)}
+                                >
+                                  <Trash2 size={15} />
+                                </Button>
+                              </div>
+                            ))}
+                          
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="mt-2 text-xs h-9 gap-2 border border-dashed border-border hover:bg-muted/50 rounded-xl px-4"
+                            onClick={() => addDuration(key)}
+                          >
+                            <Plus size={15} /> Add Timing
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Tab Content: Loyalty Rules */}
+          {activeTab === 'loyalty' && !loading && (
+            <section className="rounded-xl border border-border/50 bg-card/40 p-5 backdrop-blur-sm space-y-6">
+              <div className="flex items-center justify-between border-b border-border/30 pb-4">
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Loyalty Points System</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Configure how customers earn and redeem loyalty points across the entire application.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 bg-muted/20 px-4 py-2.5 rounded-xl border border-border/30">
+                  <span className="text-xs font-bold text-foreground">Enable Loyalty Program</span>
+                  <button
+                    type="button"
+                    onClick={() => setLoyaltySettings(s => ({ ...s, enabled: !s.enabled }))}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                      loyaltySettings.enabled ? "bg-primary" : "bg-muted"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                        loyaltySettings.enabled ? "translate-x-5" : "translate-x-0"
+                      )}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {!loyaltySettings.enabled ? (
+                <div className="text-center py-10 border border-dashed border-border/60 rounded-xl bg-muted/10 space-y-2">
+                  <p className="text-sm font-bold text-muted-foreground">Loyalty Points Program is currently disabled.</p>
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto font-medium">
+                    Toggle the switch above to enable point earnings, redemptions, and tracker details across the entire system.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="space-y-4 rounded-xl bg-muted/20 p-4 border border-border/30">
+                    <div className="text-xs font-bold text-primary uppercase tracking-wider">Earning Rules</div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <label className="flex flex-col gap-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Points to earn</span>
+                        <Input
+                          type="number"
+                          value={loyaltySettings.earn_rate_points}
+                          onChange={(e) => setLoyaltySettings(s => ({ ...s, earn_rate_points: Number(e.target.value) || 0 }))}
+                          className="h-10"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Per minutes played</span>
+                        <Input
+                          type="number"
+                          value={loyaltySettings.earn_rate_minutes}
+                          onChange={(e) => setLoyaltySettings(s => ({ ...s, earn_rate_minutes: Number(e.target.value) || 0 }))}
+                          className="h-10"
+                        />
+                      </label>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground italic font-medium">
+                      * Active setting: {loyaltySettings.earn_rate_points} loyalty points for every {loyaltySettings.earn_rate_minutes} minutes played.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4 rounded-xl bg-muted/20 p-4 border border-border/30">
+                    <div className="text-xs font-bold text-purple-500 uppercase tracking-wider">Redemption Rules</div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <label className="flex flex-col gap-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Points to redeem</span>
+                        <Input
+                          type="number"
+                          value={loyaltySettings.redeem_rate_points}
+                          onChange={(e) => setLoyaltySettings(s => ({ ...s, redeem_rate_points: Number(e.target.value) || 0 }))}
+                          className="h-10"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">For free minutes</span>
+                        <Input
+                          type="number"
+                          value={loyaltySettings.redeem_rate_minutes}
+                          onChange={(e) => setLoyaltySettings(s => ({ ...s, redeem_rate_minutes: Number(e.target.value) || 0 }))}
+                          className="h-10"
+                        />
+                      </label>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground italic font-medium">
+                      * Active setting: {loyaltySettings.redeem_rate_points} loyalty points gives {loyaltySettings.redeem_rate_minutes} minutes free.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
         </div>
 
         {/* Add Game Type Dialog */}
@@ -578,11 +919,13 @@ export default function SettingsPage({
           </DialogContent>
         </Dialog>
 
-        <div className="fixed inset-x-0 bottom-[70px] z-40 border-t border-border/50 bg-background/90 p-3 backdrop-blur-xl md:hidden">
-          <Button className="w-full" onClick={saveAll} disabled={saving || loading}>
-            {saving ? 'Saving...' : 'Save all changes'}
-          </Button>
-        </div>
+        {activeTab !== 'account' && (
+          <div className="fixed inset-x-0 bottom-[70px] z-40 border-t border-border/50 bg-background/90 p-3 backdrop-blur-xl md:hidden">
+            <Button className="w-full" onClick={saveAll} disabled={saving || loading}>
+              {saving ? 'Saving...' : 'Save all changes'}
+            </Button>
+          </div>
+        )}
       </main>
     </div>
   );

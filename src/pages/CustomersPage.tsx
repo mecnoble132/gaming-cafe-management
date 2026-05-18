@@ -3,6 +3,8 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SkeletonCustomersPage } from '@/components/ui/Skeleton';
+import { cn } from '@/lib/utils';
 import { 
   Users, 
   Plus, 
@@ -40,7 +42,7 @@ export default function CustomersPage({
 }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
 
-  const { tenant } = useTenant();
+  const { tenant, isLoyaltyEnabled } = useTenant();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -222,6 +224,10 @@ export default function CustomersPage({
     setIsAddDialogOpen(true);
   };
 
+  if (loading) {
+    return <SkeletonCustomersPage />;
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar
@@ -287,14 +293,16 @@ export default function CustomersPage({
                         onChange={e => setFormData({...formData, whatsapp_number: e.target.value})}
                       />
                     </div>
-                    <div className="grid gap-3.5">
-                      <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">GG Points</label>
-                      <Input 
-                        type="number" 
-                        value={formData.loyalty_points}
-                        onChange={e => setFormData({...formData, loyalty_points: Number(e.target.value)})}
-                      />
-                    </div>
+                    {isLoyaltyEnabled && (
+                      <div className="grid gap-3.5">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Loyalty Points</label>
+                        <Input 
+                          type="number" 
+                          value={formData.loyalty_points}
+                          onChange={e => setFormData({...formData, loyalty_points: Number(e.target.value)})}
+                        />
+                      </div>
+                    )}
                   </div>
                   <DialogFooter>
                     <Button variant="ghost" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
@@ -321,15 +329,17 @@ export default function CustomersPage({
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 gap-3 md:gap-4 max-w-2xl">
-      <div className="rounded-xl border border-border/50 bg-background/40 p-3 md:p-4 shadow-sm">
-        <div className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Total Visits</div>
-        <div className="text-xl md:text-2xl font-black text-foreground italic">{customers.reduce((acc, c) => acc + (c.visits || 0), 0)}</div>
-      </div>
-      <div className="rounded-xl border border-border/50 bg-background/40 p-3 md:p-4 shadow-sm">
-        <div className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Total GG Points</div>
-        <div className="text-xl md:text-2xl font-black text-primary italic">{stats.totalLoyaltyPoints.toLocaleString()}</div>
-      </div>
+          <div className={cn("grid gap-3 md:gap-4 max-w-2xl", isLoyaltyEnabled ? "grid-cols-2" : "grid-cols-1 max-w-xs")}>
+            <div className="rounded-xl border border-border/50 bg-background/40 p-3 md:p-4 shadow-sm">
+              <div className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Total Visits</div>
+              <div className="text-xl md:text-2xl font-black text-foreground italic">{customers.reduce((acc, c) => acc + (c.visits || 0), 0)}</div>
+            </div>
+            {isLoyaltyEnabled && (
+              <div className="rounded-xl border border-border/50 bg-background/40 p-3 md:p-4 shadow-sm">
+                <div className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Total Loyalty Points</div>
+                <div className="text-xl md:text-2xl font-black text-primary italic">{stats.totalLoyaltyPoints.toLocaleString()}</div>
+              </div>
+            )}
           </div>
 
           <div className="rounded-xl border border-border/50 bg-background/40 shadow-xl overflow-hidden backdrop-blur-md max-w-full">
@@ -347,15 +357,17 @@ export default function CustomersPage({
                       </div>
                     </th>
                     <th className="px-3 md:px-6 py-3 md:py-4 text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">Contact</th>
-                    <th 
-                      className="px-3 md:px-6 py-3 md:py-4 text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground text-center cursor-pointer hover:bg-muted/30 transition-colors"
-                      onClick={() => toggleSort('loyalty_points')}
-                    >
-                      <div className="flex items-center justify-center gap-1 md:gap-2">
-                        GG Points
-                        <ArrowUpDown size={10} className={sortConfig.key === 'loyalty_points' ? 'text-primary' : 'text-muted-foreground/50'} />
-                      </div>
-                    </th>
+                    {isLoyaltyEnabled && (
+                      <th 
+                        className="px-3 md:px-6 py-3 md:py-4 text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground text-center cursor-pointer hover:bg-muted/30 transition-colors"
+                        onClick={() => toggleSort('loyalty_points')}
+                      >
+                        <div className="flex items-center justify-center gap-1 md:gap-2">
+                          Loyalty Points
+                          <ArrowUpDown size={10} className={sortConfig.key === 'loyalty_points' ? 'text-primary' : 'text-muted-foreground/50'} />
+                        </div>
+                      </th>
+                    )}
                     <th 
                       className="px-3 md:px-6 py-3 md:py-4 text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground text-center cursor-pointer hover:bg-muted/30 transition-colors"
                       onClick={() => toggleSort('visits')}
@@ -380,7 +392,7 @@ export default function CustomersPage({
                 <tbody className="divide-y divide-border/30">
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                      <td colSpan={isLoyaltyEnabled ? 6 : 5} className="px-6 py-12 text-center text-muted-foreground">
                         <div className="flex flex-col items-center gap-2">
                           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                           <span>Loading customers...</span>
@@ -389,7 +401,7 @@ export default function CustomersPage({
                     </tr>
                   ) : filteredCustomers.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground italic">
+                      <td colSpan={isLoyaltyEnabled ? 6 : 5} className="px-6 py-12 text-center text-muted-foreground italic">
                         {search ? `No customers matching "${search}"` : 'No customers yet'}
                       </td>
                     </tr>
@@ -419,14 +431,16 @@ export default function CustomersPage({
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col items-center">
-                            <Badge variant="outline" className="gap-1 px-2 py-0.5 border-primary/30 bg-primary/5 text-primary">
-                              <Award size={10} />
-                              {customer.loyalty_points || 0} GG pts
-                            </Badge>
-                          </div>
-                        </td>
+                        {isLoyaltyEnabled && (
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col items-center">
+                              <Badge variant="outline" className="gap-1 px-2 py-0.5 border-primary/30 bg-primary/5 text-primary">
+                                <Award size={10} />
+                                {customer.loyalty_points || 0} pts
+                              </Badge>
+                            </div>
+                          </td>
+                        )}
                         <td className="px-6 py-4">
                           <div className="flex flex-col items-center">
                             <span className="font-bold text-sm">{customer.visits || 0}</span>

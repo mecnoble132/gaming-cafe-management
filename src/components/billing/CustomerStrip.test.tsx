@@ -44,7 +44,7 @@ describe('CustomerStrip Component', () => {
     );
     expect(screen.getByText('John Doe')).toBeInTheDocument();
     expect(screen.getByText('9876543210')).toBeInTheDocument();
-    expect(screen.getByText('120 GG pts')).toBeInTheDocument();
+    expect(screen.getByText('120 pts')).toBeInTheDocument();
   });
 
   it('calls onClearCustomer when "Change" is clicked', async () => {

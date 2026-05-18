@@ -3,6 +3,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SkeletonInventoryPage } from '@/components/ui/Skeleton';
 import { 
   Package, 
   Plus, 
@@ -214,6 +215,10 @@ export default function InventoryPage({
     });
     setIsAddDialogOpen(true);
   };
+
+  if (loading) {
+    return <SkeletonInventoryPage />;
+  }
 
   return (
     <div className="flex min-h-screen bg-background">

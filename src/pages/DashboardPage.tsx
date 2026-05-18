@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
+import { SkeletonDashboardPage } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { 
@@ -124,6 +125,10 @@ export default function DashboardPage({
     ? Math.round(((data.revenueToday - data.revenueYesterday) / data.revenueYesterday) * 100)
     : 0;
 
+  if (loading) {
+    return <SkeletonDashboardPage />;
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar
@@ -138,14 +143,7 @@ export default function DashboardPage({
         <PageHeader title="Command Center" />
 
         <div className="mx-auto w-full max-w-[1600px] space-y-6 p-4 sm:p-6">
-          {loading ? (
-             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 animate-pulse">
-                {[1, 2, 3, 4].map(i => (
-                  <div key={i} className="h-32 bg-muted/20 rounded-xl border border-border/50"></div>
-                ))}
-             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Card className="border-border/50 bg-card/60 backdrop-blur-xl">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -218,7 +216,6 @@ export default function DashboardPage({
                 </CardContent>
               </Card>
             </div>
-          )}
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="border-border/50 bg-card/60 backdrop-blur-xl lg:col-span-2">

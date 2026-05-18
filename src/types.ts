@@ -97,4 +97,5 @@ export interface LoyaltySettings {
   earn_rate_minutes: number;
   redeem_rate_points: number;
   redeem_rate_minutes: number;
+  enabled?: boolean;
 }

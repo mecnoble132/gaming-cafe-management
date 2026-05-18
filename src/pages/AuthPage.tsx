@@ -27,6 +27,7 @@ interface AuthPageProps {
 
 export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms, onShowPrivacy }: AuthPageProps) {
   const [isSignUp, setIsSignUp] = useState(initialIsSignUp);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -37,8 +38,12 @@ export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms,
 
   // Update page title based on mode
   useEffect(() => {
-    document.title = isSignUp ? 'Create Account · CoreControl' : 'Sign In · CoreControl';
-  }, [isSignUp]);
+    document.title = isForgotPassword
+      ? 'Reset Password · CoreControl'
+      : isSignUp
+      ? 'Create Account · CoreControl'
+      : 'Sign In · CoreControl';
+  }, [isSignUp, isForgotPassword]);
 
   // Auto-rotate showcase
   useEffect(() => {
@@ -54,7 +59,13 @@ export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms,
     setMessage(null);
     setLoading(true);
     try {
-      if (isSignUp) {
+      if (isForgotPassword) {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/`,
+        });
+        if (resetError) throw resetError;
+        setMessage('Password reset link sent! Please check your email.');
+      } else if (isSignUp) {
         const { error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -159,9 +170,15 @@ export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms,
             <Logo size="lg" />
           </div>
           
-          <h1 className="text-3xl font-black tracking-tight">{isSignUp ? 'Create Account' : 'Welcome Back'}</h1>
+          <h1 className="text-3xl font-black tracking-tight">
+            {isForgotPassword ? 'Reset Password' : isSignUp ? 'Create Account' : 'Welcome Back'}
+          </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {isSignUp ? 'Register your cafe to start managing.' : 'Sign in to access your CoreControl dashboard.'}
+            {isForgotPassword 
+              ? 'Enter your email address to receive a password reset link.' 
+              : isSignUp 
+              ? 'Register your cafe to start managing.' 
+              : 'Sign in to access your CoreControl dashboard.'}
           </p>
 
           <form className="mt-8 space-y-4" onSubmit={onSubmit}>
@@ -177,20 +194,39 @@ export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms,
                 className="h-11 bg-muted/50 border-border/50 focus:bg-background transition-colors"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Password</label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                autoComplete="current-password"
-                className="h-11 bg-muted/50 border-border/50 focus:bg-background transition-colors"
-              />
-            </div>
-            {isSignUp && (
+            
+            {!isForgotPassword && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Password</label>
+                  {!isSignUp && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setMessage(null);
+                        setIsForgotPassword(true);
+                      }}
+                      className="text-xs font-bold text-primary hover:underline"
+                    >
+                      Forgot Password?
+                    </button>
+                  )}
+                </div>
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  autoComplete="current-password"
+                  className="h-11 bg-muted/50 border-border/50 focus:bg-background transition-colors"
+                />
+              </div>
+            )}
+
+            {isSignUp && !isForgotPassword && (
               <label className="flex items-start gap-3 cursor-pointer select-none group">
                 <div className="relative mt-0.5 shrink-0">
                   <input
@@ -215,8 +251,9 @@ export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms,
                 </span>
               </label>
             )}
-            <Button type="submit" className="w-full h-11 text-base font-bold mt-2" disabled={loading || (isSignUp && !agreedToTerms)}>
-              {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign in'}
+
+            <Button type="submit" className="w-full h-11 text-base font-bold mt-2" disabled={loading || (isSignUp && !isForgotPassword && !agreedToTerms)}>
+              {loading ? 'Please wait...' : isForgotPassword ? 'Send Reset Link' : isSignUp ? 'Create Account' : 'Sign in'}
             </Button>
           </form>
 
@@ -224,13 +261,31 @@ export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms,
           {message ? <div className="mt-4 rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-500 border border-emerald-500/20">{message}</div> : null}
           
           <div className="mt-8 text-center border-t border-border/50 pt-6">
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
-            >
-              {isSignUp ? 'Already have an account? Sign in instead' : "Don't have an account? Register your cafe"}
-            </button>
+            {isForgotPassword ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setMessage(null);
+                  setIsForgotPassword(false);
+                }}
+                className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+              >
+                Back to Sign In
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setMessage(null);
+                  setIsSignUp(!isSignUp);
+                }}
+                className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+              >
+                {isSignUp ? 'Already have an account? Sign in instead' : "Don't have an account? Register your cafe"}
+              </button>
+            )}
           </div>
         </div>
       </div>

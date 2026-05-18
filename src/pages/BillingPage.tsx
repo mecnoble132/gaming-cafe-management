@@ -11,6 +11,8 @@ import { DEFAULT_PRICING_CONFIG, GamePricingConfig, normalizePricingConfig } fro
 import { DEFAULT_LOYALTY_SETTINGS } from '@/lib/loyalty';
 import { LoyaltySettings } from '@/types';
 import { getRouteByLabel } from '@/lib/navigation';
+import { useTenant } from '@/hooks/useTenant';
+import { SkeletonBillingPage } from '@/components/ui/Skeleton';
 
 
 
@@ -23,6 +25,8 @@ export default function BillingPage({
 }) {
   useEffect(() => { document.title = 'Billing · CoreControl'; }, []);
 
+  const { isLoyaltyEnabled } = useTenant();
+  const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -33,20 +37,25 @@ export default function BillingPage({
 
   useEffect(() => {
     const loadData = async () => {
-      const { data: profile } = await supabase.from('profiles').select('tenant_id').single();
-      if (profile) setTenantId(profile.tenant_id);
+      setLoading(true);
+      try {
+        const { data: profile } = await supabase.from('profiles').select('tenant_id').single();
+        if (profile) setTenantId(profile.tenant_id);
 
-      const { data: pricingData } = await supabase.from('pricing_settings').select('config').maybeSingle();
-      if (pricingData?.config) setPricingConfig(normalizePricingConfig(pricingData.config));
+        const { data: pricingData } = await supabase.from('pricing_settings').select('config').maybeSingle();
+        if (pricingData?.config) setPricingConfig(normalizePricingConfig(pricingData.config));
 
-      const { data: productData } = await supabase.from('products').select('*').order('name');
-      if (productData && productData.length > 0) setProducts(productData);
+        const { data: productData } = await supabase.from('products').select('*').order('name');
+        if (productData && productData.length > 0) setProducts(productData);
 
-      const { data: customerData } = await supabase.from('customers').select('*').order('name');
-      if (customerData) setCustomers(customerData);
+        const { data: customerData } = await supabase.from('customers').select('*').order('name');
+        if (customerData) setCustomers(customerData);
 
-      const { data: loyaltyData } = await supabase.from('loyalty_settings').select('*').maybeSingle();
-      if (loyaltyData) setLoyaltySettings(loyaltyData as LoyaltySettings);
+        const { data: loyaltyData } = await supabase.from('loyalty_settings').select('*').maybeSingle();
+        if (loyaltyData) setLoyaltySettings(loyaltyData as LoyaltySettings);
+      } finally {
+        setLoading(false);
+      }
     };
     loadData();
 
@@ -104,7 +113,7 @@ export default function BillingPage({
   }, [customers, pricingConfig]);
 
   const addItem = (item: Omit<BillItem, 'id' | 'bill_id'>) => {
-    const newItem: BillItem = { ...item, id: crypto.randomUUID(), bill_id: 'current' };
+    const newItem: BillItem = { ...item, id: crypto.randomUUID(), bill_id: 'current' } as BillItem;
     if (item.item_type === 'product') {
       setBillItems((prev) => {
         const existing = prev.find((i) => i.item_type === 'product' && i.item_name === item.item_name);
@@ -271,6 +280,10 @@ export default function BillingPage({
     }
   };
 
+  if (loading) {
+    return <SkeletonBillingPage />;
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar
@@ -289,10 +302,11 @@ export default function BillingPage({
           onClearCustomer={() => setSelectedCustomer(null)}
           onSelectCustomer={setSelectedCustomer}
           onCreateCustomer={createCustomer}
+          isLoyaltyEnabled={isLoyaltyEnabled}
         />
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 p-3 sm:p-4 lg:flex-row items-start">
           <div className="flex-1 lg:w-2/3 flex flex-col gap-4 w-full min-w-0">
-            <GameTabs onAddItem={addItem} products={products} productQuantityById={productQuantityById} pricingConfig={pricingConfig} />
+            <GameTabs onAddItem={addItem} products={products} productQuantityById={productQuantityById} pricingConfig={pricingConfig} isLoyaltyEnabled={isLoyaltyEnabled} />
           </div>
           <div className="w-full lg:w-1/3 lg:min-w-[380px] lg:sticky lg:top-20">
             <BillSummary
@@ -302,6 +316,7 @@ export default function BillingPage({
               onRemoveItem={removeItem}
               onUpdateQuantity={updateQuantity}
               onFinalize={handleFinalize}
+              isLoyaltyEnabled={isLoyaltyEnabled}
             />
           </div>
         </div>
