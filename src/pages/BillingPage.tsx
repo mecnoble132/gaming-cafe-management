@@ -25,7 +25,7 @@ export default function BillingPage({
 }) {
 
 
-  const { isLoyaltyEnabled } = useTenant();
+  const { isLoyaltyEnabled, tenant } = useTenant();
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -33,14 +33,11 @@ export default function BillingPage({
   const [billItems, setBillItems] = useState<BillItem[]>([]);
   const [pricingConfig, setPricingConfig] = useState<GamePricingConfig>(DEFAULT_PRICING_CONFIG);
   const [loyaltySettings, setLoyaltySettings] = useState<LoyaltySettings>(DEFAULT_LOYALTY_SETTINGS);
-  const [tenantId, setTenantId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async (isSilent = false) => {
       if (!isSilent) setLoading(true);
       try {
-        const { data: profile } = await supabase.from('profiles').select('tenant_id').single();
-        if (profile) setTenantId(profile.tenant_id);
 
         const { data: pricingData } = await supabase.from('pricing_settings').select('config').maybeSingle();
         if (pricingData?.config) setPricingConfig(normalizePricingConfig(pricingData.config));
@@ -160,7 +157,11 @@ export default function BillingPage({
   }, {});
 
   const createCustomer = async (payload: { name?: string; phone: string; whatsapp_number?: string }) => {
-    const { data: existing } = await supabase.from('customers').select('*').eq('phone', payload.phone).maybeSingle();
+    const { data: existing, error: existError } = await supabase.from('customers').select('*').eq('phone', payload.phone).maybeSingle();
+    if (existError) {
+      toast.error(`Error checking customer profile: ${existError.message}`);
+      return;
+    }
     if (existing) {
       setCustomers((prev) => prev.map(c => c.id === existing.id ? (existing as Customer) : c));
       setSelectedCustomer(existing as Customer);
@@ -177,7 +178,7 @@ export default function BillingPage({
       visits: 0,
     };
 
-    const { data: newCustomer, error } = await supabase.from('customers').insert({ ...created, ...(tenantId ? { tenant_id: tenantId } : {}) }).select().single();
+    const { data: newCustomer, error } = await supabase.from('customers').insert({ ...created, ...(tenant?.id ? { tenant_id: tenant.id } : {}) }).select().single();
     if (error || !newCustomer) {
       toast.error(`Failed to save new customer: ${error?.message || 'Unknown error'}`);
       return;
@@ -210,54 +211,31 @@ export default function BillingPage({
     const ptsEarned = isUnlinked ? 0 : (pointsEarned || 0);
     const ptsRedeemed = isUnlinked ? 0 : (pointsRedeemed || 0);
 
-    if (!tenantId) {
+    if (!tenant?.id) {
       toast.error('Session not ready — please refresh the page and try again.');
       return;
     }
 
     try {
-      // ── Step 1: Create the bill record ──
-      const billId = generateLocalId('BILL');
-      const { error: billError } = await supabase.from('bills').insert({
-        id: billId,
-        tenant_id: tenantId,
-        customer_id: customerIdVal,
-        customer_name: customerNameVal,
-        customer_phone: customerPhoneVal,
-        payment_method: paymentMethod,
-        subtotal: Math.round(subtotal) || 0,
-        discount: Math.round(discount) || 0,
-        grand_total: Math.round(grandTotal) || 0,
-        points_earned: ptsEarned,
-        points_redeemed: ptsRedeemed,
-        items: billItems || [],
+      // Finalize bill atomically using Supabase RPC function (database transaction)
+      const { data: billId, error: rpcError } = await supabase.rpc('atomic_finalize_bill', {
+        p_data: {
+          p_customer_id: customerIdVal,
+          p_customer_name: customerNameVal,
+          p_customer_phone: customerPhoneVal,
+          p_payment_method: paymentMethod,
+          p_subtotal: Math.round(subtotal) || 0,
+          p_discount: Math.round(discount) || 0,
+          p_grand_total: Math.round(grandTotal) || 0,
+          p_points_earned: ptsEarned,
+          p_points_redeemed: ptsRedeemed,
+          p_items: billItems || [],
+        }
       });
 
-      if (billError) throw new Error(billError.message);
+      if (rpcError) throw new Error(rpcError.message);
 
-      // ── Step 2: Decrement stock for product items ──
-      for (const item of billItems) {
-        if (item.item_type === 'product' && item.metadata?.product_id) {
-          const product = products.find(p => p.id === item.metadata?.product_id);
-          if (product) {
-            const newQty = Math.max(0, product.stock_quantity - item.quantity);
-            await supabase.from('products')
-              .update({ stock_quantity: newQty })
-              .eq('id', item.metadata.product_id);
-          }
-        }
-      }
-
-      // ── Step 3: Update customer loyalty points & visits ──
-      if (customerIdVal && selectedCustomer) {
-        const newPoints = Math.max(0, (selectedCustomer.loyalty_points || 0) + ptsEarned - ptsRedeemed);
-        const newVisits = (selectedCustomer.visits || 0) + 1;
-        await supabase.from('customers')
-          .update({ loyalty_points: newPoints, visits: newVisits })
-          .eq('id', customerIdVal);
-      }
-
-      // ── Step 4: Refresh local state ──
+      // ── Step 2: Refresh local state ──
       const { data: freshProducts } = await supabase.from('products').select('*').order('name');
       if (freshProducts) setProducts(freshProducts);
 

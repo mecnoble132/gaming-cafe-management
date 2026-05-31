@@ -69,7 +69,7 @@ export default function DashboardPage({
         { data: customersToday },
         { data: billsToday },
         { data: billsYesterday },
-        { data: lowStockProducts },
+        { data: allProducts },
         { data: recentBills },
         { data: historyBills }
       ] = await Promise.all([
@@ -77,7 +77,7 @@ export default function DashboardPage({
         supabase.from('customers').select('id').gte('created_at', startOfDay(today).toISOString()),
         supabase.from('bills').select('grand_total').gte('created_at', startOfDay(today).toISOString()).lte('created_at', endOfDay(today).toISOString()),
         supabase.from('bills').select('grand_total').gte('created_at', startOfDay(yesterday).toISOString()).lte('created_at', endOfDay(yesterday).toISOString()),
-        supabase.from('products').select('*').lt('stock_quantity', 5).limit(3),
+        supabase.from('products').select('*'),
         supabase.from('bills').select('*').order('created_at', { ascending: false }).limit(5),
         supabase.from('bills').select('grand_total, created_at').gte('created_at', subDays(today, 7).toISOString())
       ]);
@@ -100,12 +100,16 @@ export default function DashboardPage({
         .map(([name, total]) => ({ name, revenue: total }))
         .reverse();
 
+      const lowStockProducts = allProducts
+        ? allProducts.filter(p => p.stock_quantity <= (p.low_stock_threshold ?? 5)).slice(0, 3)
+        : [];
+
       setData({
         revenueToday: revToday,
         revenueYesterday: revYesterday,
         newCustomersToday: customersToday?.length || 0,
         totalCustomers: allCustomers?.length || 0,
-        lowStockItems: lowStockProducts || [],
+        lowStockItems: lowStockProducts,
         recentBills: recentBills || [],
         revenueHistory,
       });

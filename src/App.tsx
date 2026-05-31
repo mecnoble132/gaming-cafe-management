@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
 import BillingPage from './pages/BillingPage';
 import { useEffect, useState } from 'react';
@@ -26,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { PageName } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 
-const queryClient = new QueryClient();
+
 
 function AppContent() {
   const { tenant, loading: tenantLoading, error: tenantError, refresh } = useTenant();
@@ -37,14 +36,32 @@ function AppContent() {
     await supabase.auth.signOut();
   };
 
+  // Synchronize state with URL hash
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace(/^#\/?/, '') as PageName;
+      const validPages: PageName[] = ['dashboard', 'billing', 'bookings', 'inventory', 'customers', 'reports', 'settings'];
+      if (validPages.includes(hash)) {
+        setPage(hash);
+      } else {
+        setPage('dashboard');
+        window.location.hash = '#/dashboard';
+      }
+    };
+
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const nav = (next: PageName) => {
-    setPage(next);
+    window.location.hash = `#/${next}`;
     window.dispatchEvent(new CustomEvent('app-page-changed', { detail: next }));
   };
 
   useEffect(() => {
     const handleOpenAccount = () => {
-      setPage('settings');
+      window.location.hash = '#/settings';
     };
     window.addEventListener('open-account-settings', handleOpenAccount);
     return () => window.removeEventListener('open-account-settings', handleOpenAccount);
@@ -99,27 +116,13 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans antialiased">
-      <div className={cn(page === 'dashboard' ? 'block' : 'hidden')}>
-        <DashboardPage onNavigate={nav} onLogout={handleLogout} />
-      </div>
-      <div className={cn(page === 'billing' ? 'block' : 'hidden')}>
-        <BillingPage onNavigate={nav} onLogout={handleLogout} />
-      </div>
-      <div className={cn(page === 'bookings' ? 'block' : 'hidden')}>
-        <BookingsPage onNavigate={nav} onLogout={handleLogout} />
-      </div>
-      <div className={cn(page === 'inventory' ? 'block' : 'hidden')}>
-        <InventoryPage onNavigate={nav} onLogout={handleLogout} />
-      </div>
-      <div className={cn(page === 'customers' ? 'block' : 'hidden')}>
-        <CustomersPage onNavigate={nav} onLogout={handleLogout} />
-      </div>
-      <div className={cn(page === 'reports' ? 'block' : 'hidden')}>
-        <ReportsPage onNavigate={nav} onLogout={handleLogout} />
-      </div>
-      <div className={cn(page === 'settings' ? 'block' : 'hidden')}>
-        <SettingsPage onNavigate={nav} onLogout={handleLogout} />
-      </div>
+      {page === 'dashboard' && <DashboardPage onNavigate={nav} onLogout={handleLogout} />}
+      {page === 'billing' && <BillingPage onNavigate={nav} onLogout={handleLogout} />}
+      {page === 'bookings' && <BookingsPage onNavigate={nav} onLogout={handleLogout} />}
+      {page === 'inventory' && <InventoryPage onNavigate={nav} onLogout={handleLogout} />}
+      {page === 'customers' && <CustomersPage onNavigate={nav} onLogout={handleLogout} />}
+      {page === 'reports' && <ReportsPage onNavigate={nav} onLogout={handleLogout} />}
+      {page === 'settings' && <SettingsPage onNavigate={nav} onLogout={handleLogout} />}
       <Toaster position="bottom-right" />
     </div>
   );
@@ -161,50 +164,48 @@ export default function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {authLoading ? (
-        <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Checking session...</div>
-      ) : isRecovering ? (
-        <AuthPage
-          isRecovery={true}
-          onRecoveryComplete={() => {
-            setIsRecovering(false);
-            setSession(null);
-          }}
+    authLoading ? (
+      <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Checking session...</div>
+    ) : isRecovering ? (
+      <AuthPage
+        isRecovery={true}
+        onRecoveryComplete={() => {
+          setIsRecovering(false);
+          setSession(null);
+        }}
+      />
+    ) : !session ? (
+      showTerms ? (
+        <TermsPage onBack={() => setShowTerms(false)} />
+      ) : showPrivacy ? (
+        <PrivacyPage onBack={() => setShowPrivacy(false)} />
+      ) : showAuth ? (
+        <AuthPage 
+          initialIsSignUp={authIsSignUp} 
+          onBack={() => setShowAuth(false)} 
+          onShowTerms={() => setShowTerms(true)}
+          onShowPrivacy={() => setShowPrivacy(true)}
         />
-      ) : !session ? (
-        showTerms ? (
-          <TermsPage onBack={() => setShowTerms(false)} />
-        ) : showPrivacy ? (
-          <PrivacyPage onBack={() => setShowPrivacy(false)} />
-        ) : showAuth ? (
-          <AuthPage 
-            initialIsSignUp={authIsSignUp} 
-            onBack={() => setShowAuth(false)} 
+      ) : (
+        <>
+          <LandingPage 
+            onStart={(isSignUp) => {
+              setAuthIsSignUp(isSignUp);
+              setShowAuth(true);
+            }} 
             onShowTerms={() => setShowTerms(true)}
             onShowPrivacy={() => setShowPrivacy(true)}
           />
-        ) : (
-          <>
-            <LandingPage 
-              onStart={(isSignUp) => {
-                setAuthIsSignUp(isSignUp);
-                setShowAuth(true);
-              }} 
-              onShowTerms={() => setShowTerms(true)}
-              onShowPrivacy={() => setShowPrivacy(true)}
-            />
-            <CookieConsent 
-              onShowPrivacy={() => setShowPrivacy(true)}
-              onShowTerms={() => setShowTerms(true)}
-            />
-          </>
-        )
-      ) : (
-        <TenantProvider session={session}>
-          <AppContent />
-        </TenantProvider>
-      )}
-    </QueryClientProvider>
+          <CookieConsent 
+            onShowPrivacy={() => setShowPrivacy(true)}
+            onShowTerms={() => setShowTerms(true)}
+          />
+        </>
+      )
+    ) : (
+      <TenantProvider session={session}>
+        <AppContent />
+      </TenantProvider>
+    )
   );
 }

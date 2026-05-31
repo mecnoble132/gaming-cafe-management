@@ -4,6 +4,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/layout/Logo';
 import { ArrowLeft } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const getPasswordStrength = (pwd: string) => {
+  if (!pwd) return { score: 0, label: '', color: 'bg-transparent' };
+  let score = 0;
+  if (pwd.length >= 8) score += 1;
+  if (/[A-Z]/.test(pwd)) score += 1;
+  if (/[a-z]/.test(pwd)) score += 1;
+  if (/[0-9]/.test(pwd)) score += 1;
+  if (/[^A-Za-z0-9]/.test(pwd)) score += 1;
+
+  if (score <= 2) return { score, label: 'Weak 🔴', color: 'bg-red-500' };
+  if (score <= 4) return { score, label: 'Medium 🟡', color: 'bg-yellow-500' };
+  return { score, label: 'Strong 🟢', color: 'bg-emerald-500' };
+};
 
 // Import assets
 import imgDashboard from '@/assets/dashboard.png';
@@ -66,8 +81,8 @@ export default function AuthPage({ initialIsSignUp = false, isRecovery = false, 
     try {
       if (isRecovery) {
         // Password recovery mode — update the password
-        if (password.length < 6) {
-          setError('Password must be at least 6 characters.');
+        if (password.length < 8) {
+          setError('Password must be at least 8 characters.');
           setLoading(false);
           return;
         }
@@ -91,6 +106,11 @@ export default function AuthPage({ initialIsSignUp = false, isRecovery = false, 
         if (resetError) throw resetError;
         setMessage('Password reset link sent! Please check your email.');
       } else if (isSignUp) {
+        if (password.length < 8) {
+          setError('Password must be at least 8 characters.');
+          setLoading(false);
+          return;
+        }
         const { error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -236,10 +256,26 @@ export default function AuthPage({ initialIsSignUp = false, isRecovery = false, 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                     autoComplete="new-password"
                     className="h-11 bg-muted/50 border-border/50 focus:bg-background transition-colors"
                   />
+                  {password && (
+                    <div className="mt-1.5 space-y-1">
+                      <div className="flex items-center justify-between text-2xs">
+                        <span className="text-muted-foreground text-xs">Strength:</span>
+                        <span className="font-semibold text-xs">
+                          {getPasswordStrength(password).label}
+                        </span>
+                      </div>
+                      <div className="h-1 w-full rounded-full bg-muted overflow-hidden">
+                        <div 
+                          className={cn("h-full transition-all duration-300", getPasswordStrength(password).color)}
+                          style={{ width: `${(getPasswordStrength(password).score / 5) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirm Password</label>
@@ -249,7 +285,7 @@ export default function AuthPage({ initialIsSignUp = false, isRecovery = false, 
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                     autoComplete="new-password"
                     className="h-11 bg-muted/50 border-border/50 focus:bg-background transition-colors"
                   />
@@ -282,10 +318,26 @@ export default function AuthPage({ initialIsSignUp = false, isRecovery = false, 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={8}
                   autoComplete="current-password"
                   className="h-11 bg-muted/50 border-border/50 focus:bg-background transition-colors"
                 />
+                {isSignUp && password && (
+                  <div className="mt-1.5 space-y-1">
+                    <div className="flex items-center justify-between text-2xs">
+                      <span className="text-muted-foreground text-xs">Strength:</span>
+                      <span className="font-semibold text-xs">
+                        {getPasswordStrength(password).label}
+                      </span>
+                    </div>
+                    <div className="h-1 w-full rounded-full bg-muted overflow-hidden">
+                      <div 
+                        className={cn("h-full transition-all duration-300", getPasswordStrength(password).color)}
+                        style={{ width: `${(getPasswordStrength(password).score / 5) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
