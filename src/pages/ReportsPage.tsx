@@ -64,7 +64,7 @@ export default function ReportsPage({
   onNavigate?: (next: 'dashboard' | 'billing' | 'bookings' | 'settings' | 'inventory' | 'customers' | 'reports') => void;
   onLogout?: () => void;
 }) {
-  useEffect(() => { document.title = 'Reports · CoreControl'; }, []);
+
 
   const { tenant } = useTenant();
   const [bills, setBills] = useState<Bill[]>([]);
@@ -84,8 +84,8 @@ export default function ReportsPage({
   }, [preset, customFrom, customTo, useCustom]);
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
+    const load = async (isSilent = false) => {
+      if (!isSilent) setLoading(true);
       const { data, error } = await supabase
         .from('bills')
         .select('*')
@@ -95,11 +95,16 @@ export default function ReportsPage({
         
       if (error) toast.error('Failed to load bills: ' + error.message);
       else setBills((data as Bill[]) || []);
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     };
     load();
 
-    const handler = () => load();
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail === 'reports') {
+        load(true);
+      }
+    };
     window.addEventListener('app-page-changed', handler);
     return () => window.removeEventListener('app-page-changed', handler);
   }, [fromDate, toDate]);

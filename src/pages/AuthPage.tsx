@@ -20,16 +20,19 @@ const SHOWCASE_ITEMS = [
 
 interface AuthPageProps {
   initialIsSignUp?: boolean;
+  isRecovery?: boolean;
   onBack?: () => void;
+  onRecoveryComplete?: () => void;
   onShowTerms?: () => void;
   onShowPrivacy?: () => void;
 }
 
-export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms, onShowPrivacy }: AuthPageProps) {
+export default function AuthPage({ initialIsSignUp = false, isRecovery = false, onBack, onRecoveryComplete, onShowTerms, onShowPrivacy }: AuthPageProps) {
   const [isSignUp, setIsSignUp] = useState(initialIsSignUp);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,12 +41,14 @@ export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms,
 
   // Update page title based on mode
   useEffect(() => {
-    document.title = isForgotPassword
+    document.title = isRecovery
+      ? 'Set New Password · CoreControl'
+      : isForgotPassword
       ? 'Reset Password · CoreControl'
       : isSignUp
       ? 'Create Account · CoreControl'
       : 'Sign In · CoreControl';
-  }, [isSignUp, isForgotPassword]);
+  }, [isSignUp, isForgotPassword, isRecovery]);
 
   // Auto-rotate showcase
   useEffect(() => {
@@ -59,7 +64,27 @@ export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms,
     setMessage(null);
     setLoading(true);
     try {
-      if (isForgotPassword) {
+      if (isRecovery) {
+        // Password recovery mode — update the password
+        if (password.length < 6) {
+          setError('Password must be at least 6 characters.');
+          setLoading(false);
+          return;
+        }
+        if (password !== confirmPassword) {
+          setError('Passwords do not match.');
+          setLoading(false);
+          return;
+        }
+        const { error: updateError } = await supabase.auth.updateUser({ password });
+        if (updateError) throw updateError;
+        setMessage('Password updated successfully! Redirecting to sign in...');
+        // Sign out after updating password and redirect
+        setTimeout(async () => {
+          await supabase.auth.signOut();
+          onRecoveryComplete?.();
+        }, 2000);
+      } else if (isForgotPassword) {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: `${window.location.origin}/`,
         });
@@ -171,10 +196,12 @@ export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms,
           </div>
           
           <h1 className="text-3xl font-black tracking-tight">
-            {isForgotPassword ? 'Reset Password' : isSignUp ? 'Create Account' : 'Welcome Back'}
+            {isRecovery ? 'Set New Password' : isForgotPassword ? 'Reset Password' : isSignUp ? 'Create Account' : 'Welcome Back'}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {isForgotPassword 
+            {isRecovery
+              ? 'Choose a strong new password for your CoreControl account.'
+              : isForgotPassword 
               ? 'Enter your email address to receive a password reset link.' 
               : isSignUp 
               ? 'Register your cafe to start managing.' 
@@ -182,20 +209,56 @@ export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms,
           </p>
 
           <form className="mt-8 space-y-4" onSubmit={onSubmit}>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email Address</label>
-              <Input
-                type="email"
-                placeholder="admin@cafe.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                className="h-11 bg-muted/50 border-border/50 focus:bg-background transition-colors"
-              />
-            </div>
+            {/* Email field — hidden during recovery mode */}
+            {!isRecovery && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email Address</label>
+                <Input
+                  type="email"
+                  placeholder="admin@cafe.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  className="h-11 bg-muted/50 border-border/50 focus:bg-background transition-colors"
+                />
+              </div>
+            )}
+
+            {/* Recovery mode: New + Confirm Password fields */}
+            {isRecovery && (
+              <>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">New Password</label>
+                  <Input
+                    type="password"
+                    placeholder="Choose a strong password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    className="h-11 bg-muted/50 border-border/50 focus:bg-background transition-colors"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirm Password</label>
+                  <Input
+                    type="password"
+                    placeholder="Repeat password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    className="h-11 bg-muted/50 border-border/50 focus:bg-background transition-colors"
+                  />
+                </div>
+              </>
+            )}
             
-            {!isForgotPassword && (
+            {/* Standard login/signup password field */}
+            {!isForgotPassword && !isRecovery && (
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Password</label>
@@ -252,41 +315,43 @@ export default function AuthPage({ initialIsSignUp = false, onBack, onShowTerms,
               </label>
             )}
 
-            <Button type="submit" className="w-full h-11 text-base font-bold mt-2" disabled={loading || (isSignUp && !isForgotPassword && !agreedToTerms)}>
-              {loading ? 'Please wait...' : isForgotPassword ? 'Send Reset Link' : isSignUp ? 'Create Account' : 'Sign in'}
+            <Button type="submit" className="w-full h-11 text-base font-bold mt-2" disabled={loading || (isSignUp && !isForgotPassword && !isRecovery && !agreedToTerms)}>
+              {loading ? 'Please wait...' : isRecovery ? 'Update Password' : isForgotPassword ? 'Send Reset Link' : isSignUp ? 'Create Account' : 'Sign in'}
             </Button>
           </form>
 
           {error ? <div className="mt-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-500 border border-red-500/20">{error}</div> : null}
           {message ? <div className="mt-4 rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-500 border border-emerald-500/20">{message}</div> : null}
           
-          <div className="mt-8 text-center border-t border-border/50 pt-6">
-            {isForgotPassword ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setError(null);
-                  setMessage(null);
-                  setIsForgotPassword(false);
-                }}
-                className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
-              >
-                Back to Sign In
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setError(null);
-                  setMessage(null);
-                  setIsSignUp(!isSignUp);
-                }}
-                className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
-              >
-                {isSignUp ? 'Already have an account? Sign in instead' : "Don't have an account? Register your cafe"}
-              </button>
-            )}
-          </div>
+          {!isRecovery && (
+            <div className="mt-8 text-center border-t border-border/50 pt-6">
+              {isForgotPassword ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setMessage(null);
+                    setIsForgotPassword(false);
+                  }}
+                  className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Back to Sign In
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setMessage(null);
+                    setIsSignUp(!isSignUp);
+                  }}
+                  className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {isSignUp ? 'Already have an account? Sign in instead' : "Don't have an account? Register your cafe"}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -56,13 +56,11 @@ export default function DashboardPage({
     revenueHistory: [],
   });
 
-  useEffect(() => {
-    document.title = 'Dashboard · CoreControl';
-  }, []);
+
 
   useEffect(() => {
-    const loadDashboard = async () => {
-      setLoading(true);
+    const loadDashboard = async (isSilent = false) => {
+      if (!isSilent) setLoading(true);
       const today = new Date();
       const yesterday = subDays(today, 1);
 
@@ -116,7 +114,12 @@ export default function DashboardPage({
 
     loadDashboard();
 
-    const handler = () => loadDashboard();
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail === 'dashboard') {
+        loadDashboard(true);
+      }
+    };
     window.addEventListener('app-page-changed', handler);
     return () => window.removeEventListener('app-page-changed', handler);
   }, []);

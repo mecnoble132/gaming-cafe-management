@@ -64,16 +64,20 @@ export default function CustomersPage({
   });
 
   useEffect(() => {
-    document.title = 'Customers · CoreControl';
     loadCustomers();
 
-    const handler = () => loadCustomers();
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail === 'customers') {
+        loadCustomers(true);
+      }
+    };
     window.addEventListener('app-page-changed', handler);
     return () => window.removeEventListener('app-page-changed', handler);
   }, []);
 
-  const loadCustomers = async () => {
-    setLoading(true);
+  const loadCustomers = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const { data, error } = await supabase
         .from('customers')
@@ -84,7 +88,7 @@ export default function CustomersPage({
     } catch (error: any) {
       toast.error(error.message);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -460,7 +464,7 @@ export default function CustomersPage({
                               className="h-7 w-7 md:h-8 md:w-8 rounded-full hover:bg-primary/20 hover:text-primary"
                               onClick={() => openEdit(customer)}
                             >
-                              <Edit2 size={12} md:size={14} />
+                              <Edit2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
                             </Button>
                             <Button 
                               size="icon" 
@@ -471,7 +475,7 @@ export default function CustomersPage({
                                 setIsDeleteDialogOpen(true);
                               }}
                             >
-                              <Trash2 size={12} md:size={14} />
+                              <Trash2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
                             </Button>
                           </div>
                         </td>

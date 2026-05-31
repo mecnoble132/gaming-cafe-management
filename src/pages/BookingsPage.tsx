@@ -284,13 +284,11 @@ export default function BookingsPage({
   const isPastStart = (dateYmd: string, timeHHmm: string) => combineDateTime(dateYmd, timeHHmm).getTime() < Date.now();
   const isPast = isPastDay;
 
-  useEffect(() => {
-    document.title = 'Bookings · CoreControl';
-  }, []);
+
 
   useEffect(() => {
-    const load = async () => {
-      setLoadingData(true);
+    const load = async (isSilent = false) => {
+      if (!isSilent) setLoadingData(true);
 
       const { data: stationRows, error: stationReadError } = await supabase.from('stations').select('id,name,type').order('name');
       if (stationReadError) {
@@ -332,7 +330,12 @@ export default function BookingsPage({
 
     load();
 
-    const handler = () => load();
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail === 'bookings') {
+        load(true);
+      }
+    };
     window.addEventListener('app-page-changed', handler);
     return () => window.removeEventListener('app-page-changed', handler);
   }, []);

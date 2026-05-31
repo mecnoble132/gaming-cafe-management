@@ -52,13 +52,19 @@ export const TenantProvider: React.FC<{ children: React.ReactNode; session: Sess
   const [isLoyaltyEnabled, setIsLoyaltyEnabled] = useState(true);
 
   const fetchTenant = useCallback(async () => {
-    if (!session?.user) {
+    const userId = session?.user?.id;
+    if (!userId) {
       setTenant(null);
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    setTenant((curr) => {
+      if (!curr) {
+        setLoading(true);
+      }
+      return curr;
+    });
     setError(null);
     try {
       let profile: { tenant_id: string; tenants: TenantRow | TenantRow[] | null } | null = null;
@@ -66,14 +72,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode; session: Sess
       const withFlag = await supabase
         .from('profiles')
         .select('tenant_id, tenants(id, name, slug, onboarding_completed)')
-        .eq('id', session.user.id)
+        .eq('id', userId)
         .maybeSingle();
 
       if (withFlag.error && isMissingOnboardingColumnError(withFlag.error.message)) {
         const basic = await supabase
           .from('profiles')
           .select('tenant_id, tenants(id, name, slug)')
-          .eq('id', session.user.id)
+          .eq('id', userId)
           .maybeSingle();
 
         if (basic.error) throw basic.error;
@@ -117,7 +123,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode; session: Sess
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [session?.user?.id]);
 
   useEffect(() => {
     fetchTenant();

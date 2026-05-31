@@ -19,7 +19,7 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog';
-import { AlertTriangle, Plus, Trash2, User, Lock, Loader2, Settings2 } from 'lucide-react';
+import { AlertTriangle, Plus, Trash2, User, Lock, Loader2, Settings2, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/hooks/useTenant';
 
@@ -65,11 +65,14 @@ export default function SettingsPage({
   const [updatingAccount, setUpdatingAccount] = useState(false);
   const [cafeName, setCafeName] = useState('');
 
+  // Account Deletion states
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+  const [deleteAccountConfirmText, setDeleteAccountConfirmText] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
   const { tenant, refresh: refreshTenant, setIsLoyaltyEnabled } = useTenant();
 
-  useEffect(() => {
-    document.title = 'Settings · CoreControl';
-  }, []);
+
 
   useEffect(() => {
     if (tenant?.name) {
@@ -575,6 +578,26 @@ export default function SettingsPage({
                     <span className="text-xs font-mono text-muted-foreground">ap-south-1 (Mumbai)</span>
                   </div>
                 </div>
+
+                {/* Danger Zone */}
+                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-5 backdrop-blur-sm space-y-4">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-destructive flex items-center gap-2">
+                    <ShieldAlert size={16} /> Danger Zone
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Permanently delete your account, cafe profile, and all associated data. This action cannot be undone.
+                  </p>
+                  <Button 
+                    variant="destructive" 
+                    className="w-full font-bold shadow-md shadow-destructive/10 rounded-xl"
+                    onClick={() => {
+                      setDeleteAccountConfirmText('');
+                      setIsDeleteAccountOpen(true);
+                    }}
+                  >
+                    Delete Cafe & Account
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -914,6 +937,67 @@ export default function SettingsPage({
                 }}
               >
                 Confirm Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Account Deletion Confirmation Dialog */}
+        <Dialog open={isDeleteAccountOpen} onOpenChange={(open) => { if (!open) setIsDeleteAccountOpen(false); }}>
+          <DialogContent className="sm:max-w-[440px] bg-background/95 backdrop-blur-xl border-destructive/30">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <ShieldAlert size={20} />
+                Delete Account Permanently
+              </DialogTitle>
+              <DialogDescription className="py-2 text-sm text-muted-foreground leading-relaxed">
+                This will <strong className="text-foreground">permanently delete</strong> your cafe <strong className="text-foreground">{tenant?.name || 'Unknown'}</strong> and all associated data including:
+                <ul className="list-disc pl-5 mt-2 space-y-1 text-xs">
+                  <li>All customer records and loyalty points</li>
+                  <li>All booking history</li>
+                  <li>All bills and transaction records</li>
+                  <li>All inventory and product records</li>
+                  <li>All stations and pricing settings</li>
+                  <li>Your authentication credentials</li>
+                </ul>
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Type <span className="text-destructive font-mono">{tenant?.name || 'cafe name'}</span> to confirm
+              </label>
+              <Input
+                placeholder={tenant?.name || 'Cafe name'}
+                value={deleteAccountConfirmText}
+                onChange={(e) => setDeleteAccountConfirmText(e.target.value)}
+                className="h-10 border-destructive/30 focus:border-destructive"
+                autoComplete="off"
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="ghost" onClick={() => setIsDeleteAccountOpen(false)} disabled={deletingAccount}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deleteAccountConfirmText !== (tenant?.name || '') || deletingAccount}
+                onClick={async () => {
+                  setDeletingAccount(true);
+                  try {
+                    const { error } = await supabase.rpc('self_delete_user');
+                    if (error) throw error;
+                    toast.success('Account deleted. Goodbye!');
+                    await supabase.auth.signOut();
+                    onLogout?.();
+                  } catch (err: any) {
+                    toast.error('Failed to delete account: ' + (err?.message || 'Unknown error'));
+                  } finally {
+                    setDeletingAccount(false);
+                    setIsDeleteAccountOpen(false);
+                  }
+                }}
+              >
+                {deletingAccount ? 'Deleting...' : 'Permanently Delete Everything'}
               </Button>
             </DialogFooter>
           </DialogContent>

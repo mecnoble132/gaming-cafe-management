@@ -15,27 +15,33 @@ export default function LandingPage({ onStart, onShowTerms, onShowPrivacy }: { o
       {/* Navigation */}
       <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 py-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
         <Logo size="md" />
+        <div className="hidden md:flex items-center gap-8 text-[13px] font-bold text-muted-foreground">
+          <a href="#features" className="hover:text-foreground transition-colors">Features</a>
+          <a href="#how-it-works" className="hover:text-foreground transition-colors">How it Works</a>
+          <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
+          <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
+        </div>
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => onStart(false)}>Log In</Button>
-          <Button onClick={() => onStart(true)}>Start Free Trial</Button>
+          <Button variant="ghost" className="text-[13px] font-bold hidden sm:inline-flex" onClick={() => onStart(false)}>Log In</Button>
+          <Button className="bg-[#4ade80] text-black hover:bg-[#4ade80]/90 font-bold rounded-sm px-6 text-[13px]" onClick={() => onStart(true)}>Start Free Trial</Button>
         </div>
       </nav>
 
-      <main className="pt-24 sm:pt-32">
+      <main className="pt-20">
         {/* 1. Hero Section */}
-        <section className="px-6 py-12 md:py-20 max-w-5xl mx-auto text-center">
-          <div className="inline-block mb-4 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold tracking-wide uppercase">
-            The New Standard in Cafe Management
+        <section className="px-6 pb-16 pt-8 md:pb-28 md:pt-12 max-w-5xl mx-auto text-center">
+          <div className="inline-block mb-8 px-4 py-1.5 rounded-full border border-[#4ade80]/40 text-[#4ade80] text-xs font-bold tracking-widest uppercase">
+            V2.0 NOW LIVE
           </div>
-          <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-6 text-foreground leading-[1.1]">
-            Take complete control of your <br className="hidden md:block" /> gaming cafe.
+          <h1 className="text-5xl md:text-[80px] font-black tracking-tighter mb-8 text-foreground leading-[1.05] max-w-4xl mx-auto">
+            The Modern Operating System for <br className="hidden md:block" /> <span className="text-[#4ade80]">Gaming Centers</span>
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Stop juggling spreadsheets and manual timers. CoreControl automates billing, tracks inventory, and manages customer loyalty—all from one beautiful dashboard.
+          <p className="text-lg md:text-xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
+            Stop juggling spreadsheets and manual timers. CoreControl automates billing, tracks inventory, and manages customer loyalty—all from one beautiful command center.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" className="h-14 px-8 text-base font-semibold w-full sm:w-auto shadow-lg shadow-primary/25" onClick={() => onStart(true)}>
-              Start 7-Day Free Trial
+          <div className="flex flex-col items-center justify-center gap-3">
+            <Button size="lg" className="h-14 px-10 text-base font-bold bg-[#4ade80] text-black hover:bg-[#4ade80]/90 rounded-sm w-full sm:w-auto shadow-[0_0_40px_-10px_rgba(74,222,128,0.5)]" onClick={() => onStart(true)}>
+              Start Your Free Trial
             </Button>
             <span className="text-xs text-muted-foreground font-medium">No credit card required</span>
           </div>

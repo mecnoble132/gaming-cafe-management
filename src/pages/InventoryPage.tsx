@@ -59,16 +59,20 @@ export default function InventoryPage({
   });
 
   useEffect(() => {
-    document.title = 'Inventory · CoreControl';
     loadProducts();
 
-    const handler = () => loadProducts();
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail === 'inventory') {
+        loadProducts(true);
+      }
+    };
     window.addEventListener('app-page-changed', handler);
     return () => window.removeEventListener('app-page-changed', handler);
   }, []);
 
-  async function loadProducts() {
-    setLoading(true);
+  async function loadProducts(isSilent = false) {
+    if (!isSilent) setLoading(true);
     try {
       const { data: profile } = await supabase.from('profiles').select('tenant_id').single();
       if (profile) setTenantId(profile.tenant_id);
@@ -83,7 +87,7 @@ export default function InventoryPage({
     } catch (error: any) {
       toast.error(error.message);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   }
 
@@ -449,7 +453,7 @@ export default function InventoryPage({
                                 className="h-7 w-7 md:h-8 md:w-8 rounded-full hover:bg-primary/20 hover:text-primary"
                                 onClick={() => openEdit(product)}
                               >
-                                <Edit2 size={12} md:size={14} />
+                                <Edit2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
                               </Button>
                               <Button 
                                 size="icon" 
@@ -460,7 +464,7 @@ export default function InventoryPage({
                                   setIsDeleteDialogOpen(true);
                                 }}
                               >
-                                <Trash2 size={12} md:size={14} />
+                                <Trash2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
                               </Button>
                             </div>
                           </td>

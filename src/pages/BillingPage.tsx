@@ -23,7 +23,7 @@ export default function BillingPage({
   onNavigate?: (next: 'dashboard' | 'billing' | 'bookings' | 'settings' | 'inventory' | 'customers' | 'reports') => void;
   onLogout?: () => void;
 }) {
-  useEffect(() => { document.title = 'Billing · CoreControl'; }, []);
+
 
   const { isLoyaltyEnabled } = useTenant();
   const [loading, setLoading] = useState(true);
@@ -36,8 +36,8 @@ export default function BillingPage({
   const [tenantId, setTenantId] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
+    const loadData = async (isSilent = false) => {
+      if (!isSilent) setLoading(true);
       try {
         const { data: profile } = await supabase.from('profiles').select('tenant_id').single();
         if (profile) setTenantId(profile.tenant_id);
@@ -59,7 +59,12 @@ export default function BillingPage({
     };
     loadData();
 
-    const handler = () => loadData();
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail === 'billing') {
+        loadData(true);
+      }
+    };
     window.addEventListener('app-page-changed', handler);
     return () => window.removeEventListener('app-page-changed', handler);
   }, []);
@@ -119,7 +124,7 @@ export default function BillingPage({
         const existing = prev.find((i) => i.item_type === 'product' && i.item_name === item.item_name);
         if (existing) {
           return prev.map((i) => i.id === existing.id
-            ? { ...i, quantity: i.quantity + item.quantity, total_price: (i.quantity + item.quantity) * i.unit_price, metadata: { ...i.metadata, ...item.metadata } }
+            ? { ...i, quantity: i.quantity + item.quantity, total_price: (i.quantity + item.quantity) * i.unit_price, metadata: { ...i.metadata, ...item.metadata } } as BillItem
             : i);
         }
         return [...prev, newItem];

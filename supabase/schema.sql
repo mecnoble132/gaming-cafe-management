@@ -330,3 +330,52 @@ where onboarding_completed = false
     t.name <> 'My Gaming Cafe'
     or exists (select 1 from public.stations s where s.tenant_id = t.id)
   );
+
+-- 11. Self-Serve Account & Tenant Deletion
+-- Atomically purge ALL data belonging to the current user's tenant,
+-- then delete the user profile and auth credential.
+-- This is IRREVERSIBLE. Must be called as an authenticated user via supabase.rpc('self_delete_user').
+drop function if exists public.self_delete_user();
+
+create or replace function public.self_delete_user()
+returns void language plpgsql security definer as $$
+declare
+  v_tenant_id uuid;
+  v_user_id uuid;
+begin
+  v_user_id := auth.uid();
+  if v_user_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  -- Resolve the tenant
+  select tenant_id into v_tenant_id
+  from public.profiles
+  where id = v_user_id;
+
+  if v_tenant_id is null then
+    raise exception 'Tenant not found for current user';
+  end if;
+
+  -- 1. Delete all business data belonging to this tenant
+  delete from public.bills        where tenant_id = v_tenant_id;
+  delete from public.bookings     where tenant_id = v_tenant_id;
+  delete from public.products     where tenant_id = v_tenant_id;
+  delete from public.customers    where tenant_id = v_tenant_id;
+  delete from public.stations     where tenant_id = v_tenant_id;
+
+  -- 2. Delete all settings
+  delete from public.booking_settings  where tenant_id = v_tenant_id;
+  delete from public.pricing_settings  where tenant_id = v_tenant_id;
+  delete from public.loyalty_settings  where tenant_id = v_tenant_id;
+
+  -- 3. Delete all profiles linked to this tenant (supports future multi-staff)
+  delete from public.profiles where tenant_id = v_tenant_id;
+
+  -- 4. Delete the tenant record itself
+  delete from public.tenants where id = v_tenant_id;
+
+  -- 5. Delete the auth credential (requires security definer privilege)
+  delete from auth.users where id = v_user_id;
+end;
+$$;

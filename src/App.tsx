@@ -12,6 +12,7 @@ import AuthPage from './pages/AuthPage';
 import LandingPage from './pages/LandingPage';
 import TermsPage from '@/pages/TermsPage';
 import PrivacyPage from '@/pages/PrivacyPage';
+import { CookieConsent } from '@/components/ui/CookieConsent';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import SettingsPage from './pages/SettingsPage';
@@ -36,7 +37,10 @@ function AppContent() {
     await supabase.auth.signOut();
   };
 
-  const nav = (next: PageName) => setPage(next);
+  const nav = (next: PageName) => {
+    setPage(next);
+    window.dispatchEvent(new CustomEvent('app-page-changed', { detail: next }));
+  };
 
   useEffect(() => {
     const handleOpenAccount = () => {
@@ -132,6 +136,7 @@ export default function App() {
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [authIsSignUp, setAuthIsSignUp] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -141,10 +146,14 @@ export default function App() {
     };
     load();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecovering(true);
+      }
       setSession(nextSession);
       if (!nextSession) {
         setShowAuth(false);
+        setIsRecovering(false);
       }
       setAuthLoading(false);
     });
@@ -155,6 +164,14 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       {authLoading ? (
         <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Checking session...</div>
+      ) : isRecovering ? (
+        <AuthPage
+          isRecovery={true}
+          onRecoveryComplete={() => {
+            setIsRecovering(false);
+            setSession(null);
+          }}
+        />
       ) : !session ? (
         showTerms ? (
           <TermsPage onBack={() => setShowTerms(false)} />
@@ -168,14 +185,20 @@ export default function App() {
             onShowPrivacy={() => setShowPrivacy(true)}
           />
         ) : (
-          <LandingPage 
-            onStart={(isSignUp) => {
-              setAuthIsSignUp(isSignUp);
-              setShowAuth(true);
-            }} 
-            onShowTerms={() => setShowTerms(true)}
-            onShowPrivacy={() => setShowPrivacy(true)}
-          />
+          <>
+            <LandingPage 
+              onStart={(isSignUp) => {
+                setAuthIsSignUp(isSignUp);
+                setShowAuth(true);
+              }} 
+              onShowTerms={() => setShowTerms(true)}
+              onShowPrivacy={() => setShowPrivacy(true)}
+            />
+            <CookieConsent 
+              onShowPrivacy={() => setShowPrivacy(true)}
+              onShowTerms={() => setShowTerms(true)}
+            />
+          </>
         )
       ) : (
         <TenantProvider session={session}>
