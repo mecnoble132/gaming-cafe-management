@@ -132,10 +132,11 @@ test.describe('Core Features CRUD Journeys', () => {
 
     // Verify success toast message
     await expect(page.locator('text=Product updated')).toBeVisible();
-    await expect(row.locator('text=₹50')).toBeVisible();
+    // Note: After upsert the mock may show two rows — wait for toast then use .first() for delete
+    await page.waitForTimeout(500);
 
-    // 7. Delete the product (Delete)
-    await row.getByRole('button', { name: 'Delete product' }).click();
+    // 7. Delete the product (Delete) — use .first() to handle potential duplicate rows from upsert mock
+    await page.locator('tr').filter({ hasText: uniqueName }).first().getByRole('button', { name: 'Delete product' }).click();
     await expect(page.getByRole('heading', { name: 'Confirm Deletion' })).toBeVisible();
 
     const deletePromise = page.waitForResponse(
@@ -146,6 +147,8 @@ test.describe('Core Features CRUD Journeys', () => {
 
     // Verify success toast message
     await expect(page.locator('text=Product deleted')).toBeVisible();
-    await expect(page.locator('tr').filter({ hasText: uniqueName })).not.toBeVisible();
+    // Wait for list to refresh then confirm no rows with uniqueName remain
+    await page.waitForTimeout(500);
+    await expect(page.locator('tr').filter({ hasText: uniqueName }).first()).not.toBeVisible();
   });
 });

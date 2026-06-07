@@ -189,8 +189,9 @@ test.describe('Authentication Flows', () => {
     const signUpBtn = page.getByRole('button', { name: 'Create Account', exact: true });
     await expect(signUpBtn).toBeDisabled();
 
-    // The checkbox uses sr-only (visually hidden) — click the wrapping label for cross-browser compatibility
-    await page.locator('label:has(input[type="checkbox"])').click();
+    // The checkbox uses sr-only (visually hidden) — use JS .click() on the input to avoid
+    // accidentally triggering the "Terms of Service" or "Privacy Policy" buttons inside the label.
+    await page.locator('input[type="checkbox"]').evaluate((el: HTMLInputElement) => el.click());
     await expect(signUpBtn).toBeEnabled();
 
     // Setup signup interception for local mock resilience
@@ -242,6 +243,9 @@ test.describe('Authentication Flows', () => {
     const logoutBtn = page.getByRole('button', { name: 'Logout' });
     await logoutBtn.click();
 
-    await expect(page.getByRole('button', { name: 'Log In' })).toBeVisible();
+    // After signOut the auth state change fires and the app re-renders.
+    // It lands on the AuthPage because the path state might be /login. 
+    // Expect the login form's "Welcome Back" heading instead of the landing page's "Log In" button.
+    await expect(page.getByRole('heading', { name: 'Welcome Back' })).toBeVisible({ timeout: 15000 });
   });
 });
