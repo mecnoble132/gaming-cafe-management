@@ -22,7 +22,7 @@ describe('App Component Integration Tests', () => {
     render(<App />);
     
     await waitFor(() => {
-      expect(screen.getByText(/Take complete control of your/i)).toBeInTheDocument();
+      expect(screen.getByText(/Stop juggling spreadsheets/i)).toBeInTheDocument();
     });
   });
 
@@ -31,7 +31,7 @@ describe('App Component Integration Tests', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Take complete control of your/i)).toBeInTheDocument();
+      expect(screen.getByText(/Stop juggling spreadsheets/i)).toBeInTheDocument();
     });
 
     const loginBtn = screen.getByRole('button', { name: /Log In/i });

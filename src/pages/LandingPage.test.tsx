@@ -21,7 +21,7 @@ describe('LandingPage Component', () => {
         onShowPrivacy={mockShowPrivacy}
       />
     );
-    expect(screen.getByText(/Take complete control of your/i)).toBeInTheDocument();
+    expect(screen.getByText(/Stop juggling spreadsheets/i)).toBeInTheDocument();
     expect(screen.getByText(/Simple, transparent pricing/i)).toBeInTheDocument();
   });
 

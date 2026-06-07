@@ -448,6 +448,7 @@ export default function InventoryPage({
                           <td className="px-3 md:px-6 py-3 md:py-4 text-right">
                             <div className="flex justify-end gap-1 md:gap-2">
                               <Button 
+                                aria-label="Edit product"
                                 size="icon" 
                                 variant="ghost" 
                                 className="h-7 w-7 md:h-8 md:w-8 rounded-full hover:bg-primary/20 hover:text-primary"
@@ -456,6 +457,7 @@ export default function InventoryPage({
                                 <Edit2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
                               </Button>
                               <Button 
+                                aria-label="Delete product"
                                 size="icon" 
                                 variant="ghost" 
                                 className="h-7 w-7 md:h-8 md:w-8 rounded-full hover:bg-red-500/20 hover:text-red-500"

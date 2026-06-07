@@ -54,7 +54,7 @@ test.describe('Core Features CRUD Journeys', () => {
     await expect(row).toBeVisible();
 
     // 6. Edit the customer (Update)
-    await row.getByRole('button').first().click(); // Click the Edit icon
+    await row.getByRole('button', { name: 'Edit customer' }).click();
     await expect(page.getByRole('heading', { name: 'Edit Customer' })).toBeVisible();
 
     await page.getByPlaceholder('10-digit mobile').fill('9876543211');
@@ -69,7 +69,7 @@ test.describe('Core Features CRUD Journeys', () => {
     await expect(row.locator('text=9876543211')).toBeVisible();
 
     // 7. Delete the customer (Delete)
-    await row.getByRole('button').nth(1).click(); // Click the Trash icon
+    await row.getByRole('button', { name: 'Delete customer' }).click();
     await expect(page.getByRole('heading', { name: 'Confirm Deletion' })).toBeVisible();
 
     const deletePromise = page.waitForResponse(
@@ -120,7 +120,7 @@ test.describe('Core Features CRUD Journeys', () => {
     await expect(row).toBeVisible();
 
     // 6. Edit the product (Update)
-    await row.getByRole('button').nth(2).click(); // Click Edit icon
+    await row.getByRole('button', { name: 'Edit product' }).click();
     await expect(page.getByRole('heading', { name: 'Edit Product' })).toBeVisible();
 
     await page.locator('input[type="number"]').first().fill('50');
@@ -135,7 +135,7 @@ test.describe('Core Features CRUD Journeys', () => {
     await expect(row.locator('text=₹50')).toBeVisible();
 
     // 7. Delete the product (Delete)
-    await row.getByRole('button').nth(3).click(); // Click Trash icon
+    await row.getByRole('button', { name: 'Delete product' }).click();
     await expect(page.getByRole('heading', { name: 'Confirm Deletion' })).toBeVisible();
 
     const deletePromise = page.waitForResponse(

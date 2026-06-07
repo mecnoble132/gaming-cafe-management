@@ -36,32 +36,34 @@ function AppContent() {
     await supabase.auth.signOut();
   };
 
-  // Synchronize state with URL hash
+  // Synchronize state with URL path
   useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace(/^#\/?/, '') as PageName;
+    const handlePathChange = () => {
+      const cleanPath = window.location.pathname.replace(/^\//, '') as PageName;
       const validPages: PageName[] = ['dashboard', 'billing', 'bookings', 'inventory', 'customers', 'reports', 'settings'];
-      if (validPages.includes(hash)) {
-        setPage(hash);
+      if (validPages.includes(cleanPath)) {
+        setPage(cleanPath);
       } else {
         setPage('dashboard');
-        window.location.hash = '#/dashboard';
+        window.history.replaceState(null, '', '/dashboard');
       }
     };
 
-    handleHashChange();
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    handlePathChange();
+    window.addEventListener('popstate', handlePathChange);
+    return () => window.removeEventListener('popstate', handlePathChange);
   }, []);
 
   const nav = (next: PageName) => {
-    window.location.hash = `#/${next}`;
+    window.history.pushState(null, '', `/${next}`);
+    setPage(next);
     window.dispatchEvent(new CustomEvent('app-page-changed', { detail: next }));
   };
 
   useEffect(() => {
     const handleOpenAccount = () => {
-      window.location.hash = '#/settings';
+      window.history.pushState(null, '', '/settings');
+      setPage('settings');
     };
     window.addEventListener('open-account-settings', handleOpenAccount);
     return () => window.removeEventListener('open-account-settings', handleOpenAccount);
@@ -135,11 +137,33 @@ export default function App() {
 
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [showAuth, setShowAuth] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
-  const [showPrivacy, setShowPrivacy] = useState(false);
-  const [authIsSignUp, setAuthIsSignUp] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [path, setPath] = useState(window.location.pathname);
+
+  // Sync state with pushState / popstate
+  useEffect(() => {
+    const handlePopState = () => {
+      setPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (newPath: string) => {
+    window.history.pushState(null, '', newPath);
+    setPath(newPath);
+  };
+
+  // If not logged in and path is not one of the guest routes, redirect to '/'
+  useEffect(() => {
+    if (!authLoading && !session) {
+      const guestPaths = ['/', '/login', '/signup', '/terms', '/privacy'];
+      if (!guestPaths.includes(path)) {
+        window.history.replaceState(null, '', '/');
+        setPath('/');
+      }
+    }
+  }, [authLoading, session, path]);
 
   useEffect(() => {
     const load = async () => {
@@ -155,7 +179,6 @@ export default function App() {
       }
       setSession(nextSession);
       if (!nextSession) {
-        setShowAuth(false);
         setIsRecovering(false);
       }
       setAuthLoading(false);
@@ -175,30 +198,36 @@ export default function App() {
         }}
       />
     ) : !session ? (
-      showTerms ? (
-        <TermsPage onBack={() => setShowTerms(false)} />
-      ) : showPrivacy ? (
-        <PrivacyPage onBack={() => setShowPrivacy(false)} />
-      ) : showAuth ? (
+      path === '/terms' ? (
+        <TermsPage onBack={() => navigateTo('/')} />
+      ) : path === '/privacy' ? (
+        <PrivacyPage onBack={() => navigateTo('/')} />
+      ) : path === '/login' ? (
         <AuthPage 
-          initialIsSignUp={authIsSignUp} 
-          onBack={() => setShowAuth(false)} 
-          onShowTerms={() => setShowTerms(true)}
-          onShowPrivacy={() => setShowPrivacy(true)}
+          initialIsSignUp={false} 
+          onBack={() => navigateTo('/')} 
+          onShowTerms={() => navigateTo('/terms')}
+          onShowPrivacy={() => navigateTo('/privacy')}
+        />
+      ) : path === '/signup' ? (
+        <AuthPage 
+          initialIsSignUp={true} 
+          onBack={() => navigateTo('/')} 
+          onShowTerms={() => navigateTo('/terms')}
+          onShowPrivacy={() => navigateTo('/privacy')}
         />
       ) : (
         <>
           <LandingPage 
             onStart={(isSignUp) => {
-              setAuthIsSignUp(isSignUp);
-              setShowAuth(true);
+              navigateTo(isSignUp ? '/signup' : '/login');
             }} 
-            onShowTerms={() => setShowTerms(true)}
-            onShowPrivacy={() => setShowPrivacy(true)}
+            onShowTerms={() => navigateTo('/terms')}
+            onShowPrivacy={() => navigateTo('/privacy')}
           />
           <CookieConsent 
-            onShowPrivacy={() => setShowPrivacy(true)}
-            onShowTerms={() => setShowTerms(true)}
+            onShowPrivacy={() => navigateTo('/privacy')}
+            onShowTerms={() => navigateTo('/terms')}
           />
         </>
       )

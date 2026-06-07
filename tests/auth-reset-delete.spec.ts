@@ -5,12 +5,12 @@ test.describe('Auth Reset and Account Deletion', () => {
   test('Password Reset UI Flow', async ({ page }) => {
     await page.goto('/');
 
-    // 1. Click Get Started or Sign in to open the Auth Page
+    // 1. Click Log In or Start Managing Free to open the Auth Page
     const startBtn = page.getByRole('button', { name: 'Start Managing Free' });
     if (await startBtn.isVisible()) {
       await startBtn.click();
     } else {
-      await page.getByRole('button', { name: 'Sign In' }).click();
+      await page.getByRole('button', { name: 'Log In' }).click();
     }
     
     // Switch to Sign In if we are on Sign Up

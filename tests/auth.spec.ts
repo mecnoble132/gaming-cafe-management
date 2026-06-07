@@ -189,7 +189,8 @@ test.describe('Authentication Flows', () => {
     const signUpBtn = page.getByRole('button', { name: 'Create Account', exact: true });
     await expect(signUpBtn).toBeDisabled();
 
-    await page.locator('input[type="checkbox"]').check({ force: true });
+    // The checkbox uses sr-only (visually hidden) — click the wrapping label for cross-browser compatibility
+    await page.locator('label:has(input[type="checkbox"])').click();
     await expect(signUpBtn).toBeEnabled();
 
     // Setup signup interception for local mock resilience

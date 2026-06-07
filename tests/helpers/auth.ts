@@ -52,6 +52,29 @@ export async function loginAs(page: Page, email?: string, password?: string) {
   if (useMockAuth) {
     console.log('Enabling CORS-compliant E2E network mocking...');
 
+    // 0. Catch-all for any unhandled Supabase REST API routes (LOWEST priority, must be registered FIRST)
+    await page.route('**/rest/v1/**', async route => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({
+          status: 200,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization, prefer'
+          }
+        });
+        return;
+      }
+      // Return a sensible default for any unmatched REST route
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify(request.method() === 'GET' ? [] : {})
+      });
+    });
+
     // 1. Intercept Token Auth with OPTIONS check
     await page.route('**/auth/v1/token*', async route => {
       const request = route.request();
@@ -547,6 +570,50 @@ export async function loginAs(page: Page, email?: string, password?: string) {
         return;
       }
       await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify([]) });
+    });
+
+    // 14. Intercept Logout — ensures signOut clears session immediately without waiting for real Supabase
+    // 14. Intercept Logout — ensures signOut clears session immediately without waiting for real Supabase
+    await page.route('**/auth/v1/logout*', async route => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({
+          status: 200,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization'
+          }
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 204,
+        headers: { 'Access-Control-Allow-Origin': '*' }
+      });
+    });
+
+    // 15. Intercept Supabase RPC calls
+    await page.route('**/rest/v1/rpc/**', async route => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({
+          status: 200,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'content-type, x-client-info, apikey, authorization, prefer'
+          }
+        });
+        return;
+      }
+      // Return a mock bill ID for atomic_finalize_bill and a generic success for other RPCs
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify(`BILL-MOCK-${Date.now()}`)
+      });
     });
 
   }
